@@ -250,6 +250,17 @@
         .bubble-sender { font-size: 0.7rem; font-weight: 700; display: flex; align-items: center; gap: 4px; opacity: 0.8; margin-bottom: 2px; }
         .bubble-text { font-size: 0.95rem; line-height: 1.4; }
         .bubble-meta { font-size: 0.65rem; align-self: flex-end; opacity: 0.7; display: flex; align-items: center; gap: 4px; margin-top: 4px; }
+
+        /* ===== Burbuja de ubicación (estilo WhatsApp) ===== */
+        .bubble-location { display: flex; flex-direction: column; gap: 8px; min-width: 200px; }
+        .location-preview { background: rgba(255,255,255,0.15); border-radius: 12px; padding: 14px 12px; display: flex; align-items: center; gap: 10px; }
+        .bubble-wrapper.client .location-preview { background: rgba(0,0,0,0.06); }
+        .location-preview .loc-pin { font-size: 1.6rem; line-height: 1; }
+        .location-preview .loc-info { display: flex; flex-direction: column; gap: 2px; }
+        .location-preview .loc-title { font-weight: 700; font-size: 0.85rem; }
+        .location-preview .loc-coords { font-size: 0.7rem; opacity: 0.75; font-family: monospace; }
+        .location-maps-btn { display: flex; align-items: center; justify-content: center; gap: 6px; background: #10B981; color: #fff; border: none; border-radius: 10px; padding: 10px; font-weight: 700; font-size: 0.8rem; text-decoration: none; cursor: pointer; }
+        .location-maps-btn:active { transform: scale(0.97); }
         .bubble-meta svg { width: 12px; height: 12px; }
 
         /* Input Area */
@@ -588,6 +599,18 @@ for (const button of buttons) {
   button.addEventListener("mousedown", createRipple);
 }
 
+// ===== NORMALIZAR TELEFONO (misma regla que el bot: 9 dígitos sin prefijo 51) =====
+function normTel(t){
+  t = String(t || '').replace(/\D/g, '');
+  if(t.startsWith('51') && t.length > 9) t = t.slice(2);
+  return t;
+}
+// Variantes para consultar Firestore (mensajes viejos guardados con prefijo 51)
+function telVariants(tel){
+  tel = normTel(tel);
+  return [tel, '51' + tel];
+}
+
 // ===== FIREBASE LISTENER =====
 function iniciarListener(){
   if(listenerIniciado) return;
@@ -642,7 +665,7 @@ function iniciarListener(){
       
       snapshot.forEach(function(doc){
         var m = doc.data();
-        var tel = m.telefono || 'desconocido';
+        var tel = normTel(m.telefono) || 'desconocido';
         
         if(!conversaciones[tel]){
           conversaciones[tel] = {
@@ -760,7 +783,21 @@ function renderMensajes(telefono){
       if(m.origen === 'bot') html += '<span class="bubble-sender"><svg viewBox="0 0 24 24" style="width:12px;height:12px;"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7v1a4 4 0 0 1-4 4h-1v1a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-1H7a4 4 0 0 1-4-4v-1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"></path></svg> Asistente IA</span>';
       else if(m.origen === 'rudy') html += '<span class="bubble-sender">👤 Rudy</span>';
     }
-    html += '<span class="bubble-text">' + escapeHtml(m.texto || '') + '</span>';
+    if(m.tipoContenido === 'ubicacion' && m.lat && m.lng){
+      // Burbuja de ubicación estilo WhatsApp
+      var mapsUrl = 'https://maps.google.com/?q=' + m.lat + ',' + m.lng;
+      html += '<div class="bubble-location">';
+      html += '<div class="location-preview">';
+      html += '<span class="loc-pin">📍</span>';
+      html += '<div class="loc-info">';
+      html += '<span class="loc-title">Ubicación compartida</span>';
+      html += '<span class="loc-coords">' + Number(m.lat).toFixed(5) + ', ' + Number(m.lng).toFixed(5) + '</span>';
+      html += '</div></div>';
+      html += '<a class="location-maps-btn" href="' + mapsUrl + '" target="_blank" rel="noopener">🗺️ Abrir en Maps</a>';
+      html += '</div>';
+    } else {
+      html += '<span class="bubble-text">' + escapeHtml(m.texto || '') + '</span>';
+    }
     html += '<span class="bubble-meta">' + tiempo + '</span>';
     html += '</div></div>';
   });
@@ -817,7 +854,7 @@ async function marcarLeido(tel){
   if(!conversaciones[tel]) return;
   conversaciones[tel].noLeidos = 0;
   try {
-    var snap = await db.collection('mensajes_clientes').where('telefono','==',tel).where('leido','==',false).get();
+    var snap = await db.collection('mensajes_clientes').where('telefono','in',telVariants(tel)).where('leido','==',false).get();
     var batch = db.batch();
     snap.forEach(function(d){ batch.update(d.ref, {leido:true}); });
     await batch.commit();
@@ -855,7 +892,7 @@ async function borrarChat(){
   if(!confirm('¿Borrar todos los mensajes de esta conversación?')) return;
   
   try {
-    var snap = await db.collection('mensajes_clientes').where('telefono','==',telefonoActual).get();
+    var snap = await db.collection('mensajes_clientes').where('telefono','in',telVariants(telefonoActual)).get();
     var batch = db.batch();
     snap.forEach(function(d){ batch.delete(d.ref); });
     await batch.commit();
@@ -959,7 +996,7 @@ async function borrarSeleccionados(){
     var arr = Array.from(selectedChats);
     for(var i = 0; i < arr.length; i++){
       var tel = arr[i];
-      var snap = await db.collection('mensajes_clientes').where('telefono','==',tel).get();
+      var snap = await db.collection('mensajes_clientes').where('telefono','in',telVariants(tel)).get();
       var batch = db.batch();
       snap.forEach(function(d){ batch.delete(d.ref); });
       await batch.commit();
