@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="base">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RiderTrack Alpha - UI/UX Prototype</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* =========================================
+           1. CSS VARIABLES & THEMES ARCHITECTURE
+           ========================================= */
+        :root {
+            /* Base Theme: RiderTrack (Glassmorphism, Blue/Purple) */
+            --bg-body: #f0f2f5;
+            --bg-app: #e8eef3;
+            --surface: rgba(255, 255, 255, 0.6);
+            --surface-solid: #ffffff;
+            --surface-hover: rgba(255, 255, 255, 0.8);
+            --text-main: #1c1c1e;
+            --text-muted: #6b7280;
+            --primary: #0A58CA; /* Azul RiderTrack */
+            --primary-light: rgba(10, 88, 202, 0.1);
+            --secondary: #8B5CF6; /* Morado Alpha */
+            --success: #25D366; /* Verde WhatsApp */
+            --warning: #f59e0b;
+            --border: rgba(255, 255, 255, 0.5);
+            --shadow-soft: 0 8px 32px rgba(31, 38, 135, 0.07);
+            --blur: blur(16px);
+            --radius-sm: 12px;
+            --radius-md: 20px;
+            --radius-lg: 32px;
+            --font-family: 'Inter', sans-serif;
+            --bubble-client: #ffffff;
+            --bubble-bot: linear-gradient(135deg, var(--primary), var(--secondary));
+            --text-bot: #ffffff;
+        }
+
+        [data-theme="apple"] {
+            /* Versión A: Minimalista tipo Apple iOS 26 */
+            --bg-app: #f2f2f7;
+            --surface: #ffffff;
+            --surface-solid: #ffffff;
+            --surface-hover: #f9f9f9;
+            --text-main: #000000;
+            --text-muted: #8e8e93;
+            --primary: #007aff;
+            --primary-light: #e5f1ff;
+            --secondary: #5856d6;
+            --border: #e5e5ea;
+            --shadow-soft: 0 1px 3px rgba(0,0,0,0.05);
+            --blur: blur(0px); /* Sin glassmorphism */
+            --radius-sm: 10px;
+            --radius-md: 16px;
+            --radius-lg: 24px;
+            --bubble-client: #e9e9eb;
+            --bubble-bot: #007aff;
+            --text-bot: #ffffff;
+        }
+
+        [data-theme="gaming"] {
+            /* Versión B: Gaming Premium tipo Discord */
+            --bg-app: #202225;
+            --surface: #2f3136;
+            --surface-solid: #36393f;
+            --surface-hover: #393c43;
+            --text-main: #dcddde;
+            --text-muted: #8e9297;
+            --primary: #5865F2;
+            --primary-light: rgba(88, 101, 242, 0.2);
+            --secondary: #eb459e;
+            --border: #202225;
+            --shadow-soft: 0 4px 8px rgba(0,0,0,0.4);
+            --blur: blur(0px);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --bubble-client: #36393f;
+            --bubble-bot: #5865F2;
+            --text-bot: #ffffff;
+        }
+
+        [data-theme="future"] {
+            /* Versión C: Ultra Futurista Glassmorphism Neon */
+            --bg-app: #050505;
+            --surface: rgba(20, 20, 25, 0.4);
+            --surface-solid: #111;
+            --surface-hover: rgba(30, 30, 40, 0.6);
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --primary: #00f0ff;
+            --primary-light: rgba(0, 240, 255, 0.15);
+            --secondary: #ff003c;
+            --border: rgba(0, 240, 255, 0.2);
+            --shadow-soft: 0 0 20px rgba(0, 240, 255, 0.1);
+            --blur: blur(24px);
+            --radius-sm: 16px;
+            --radius-md: 24px;
+            --radius-lg: 40px;
+            --bubble-client: rgba(255,255,255,0.05);
+            --bubble-bot: rgba(0, 240, 255, 0.2);
+            --text-bot: #00f0ff;
+        }
+
+        /* =========================================
+           2. RESET & BASE STYLES
+           ========================================= */
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg-body); font-family: var(--font-family); display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; min-height: 100dvh; overflow: hidden; color: var(--text-main); transition: background 0.4s ease; }
+        ul { list-style: none; }
+        button { border: none; background: none; cursor: pointer; font-family: inherit; outline: none; }
+        svg { width: 24px; height: 24px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; transition: all 0.3s ease;}
+
+        /* Mobile Container Simulation */
+        .app-container { width: 100%; max-width: 100%; height: 100vh; height: 100dvh; background: var(--bg-app); position: relative; overflow: hidden; display: flex; flex-direction: column; transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1); }
+        
+        /* En escritorio: 2 columnas — media query movido al final del CSS para que no sea pisado por las reglas base */
+
+        /* Theme Selector (Hamburger menu - estático dentro del header principal) */
+        .theme-selector { position: relative; z-index: 500; flex-shrink: 0; }
+        .theme-toggle-btn { width: 32px; height: 32px; border-radius: 50%; background: var(--surface-solid); box-shadow: var(--shadow-soft); display: flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid var(--border); }
+        .theme-toggle-btn svg { width: 16px; height: 16px; color: var(--text-main); }
+        .theme-dropdown { display: none; position: absolute; top: 40px; right: 0; z-index: 600; background: var(--surface-solid); padding: 10px; border-radius: 16px; box-shadow: 0 12px 32px rgba(0,0,0,0.25); flex-direction: column; gap: 8px; border: 1px solid var(--border); min-width: 140px; }
+        .theme-dropdown.show { display: flex; }
+        .theme-dropdown-label { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; padding: 0 4px; }
+        .theme-option { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; cursor: pointer; font-size: 0.8rem; font-weight: 500; }
+        .theme-option:hover { background: var(--surface-hover); }
+        .theme-option-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0; }
+        .t-base { background: linear-gradient(135deg, #0A58CA, #8B5CF6); }
+        .t-apple { background: #ffffff; border-color: #ccc; }
+        .t-gaming { background: #5865F2; }
+        .t-future { background: #00f0ff; }
+
+        /* =========================================
+           3. COMPONENTS (GLASSMORPHISM & LAYOUT)
+           ========================================= */
+        .glass-panel { background: var(--surface); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-soft); transition: all 0.3s ease; }
+        
+        /* Scrollbar hiding */
+        .scrollable { overflow-y: auto; overflow-x: hidden; scroll-behavior: smooth; }
+        .scrollable::-webkit-scrollbar { width: 0px; background: transparent; }
+
+        /* Main View Wrapper */
+        .view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; transition: transform 0.4s cubic-bezier(0.33, 1, 0.68, 1), opacity 0.4s ease; background: var(--bg-app); }
+        .view-main { transform: translateX(0); z-index: 10; padding: 20px; }
+        .view-chat { transform: translateX(100%); z-index: 20; opacity: 0; padding-top: 0; }
+        
+        .view-main.hidden { transform: translateX(-30%) scale(0.95); opacity: 0; pointer-events: none; }
+        .view-chat.active { transform: translateX(0); opacity: 1; }
+
+        /* Header */
+        .premium-header { margin-bottom: 20px; padding: 16px; display: flex; flex-direction: column; gap: 16px; animation: slideDown 0.6s ease-out; position: relative; z-index: 300; }
+        .header-top { display: flex; justify-content: space-between; align-items: center; }
+        .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.1rem; }
+        .brand svg { color: var(--primary); }
+        .status-badge { background: var(--primary-light); color: var(--primary); padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+        .dot { width: 6px; height: 6px; background: var(--success); border-radius: 50%; box-shadow: 0 0 8px var(--success); animation: pulse 2s infinite; }
+        
+        .header-stats { display: flex; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--border); }
+        .stat-item { display: flex; flex-direction: column; gap: 4px; }
+        .stat-value { font-size: 1.2rem; font-weight: 700; color: var(--text-main); }
+        .stat-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* Dashboard Cards */
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; animation: fadeIn 0.8s ease; }
+        .dash-card { padding: 16px; display: flex; flex-direction: column; gap: 8px; position: relative; overflow: hidden; cursor: pointer; }
+        .dash-card:hover { transform: translateY(-2px); background: var(--surface-hover); }
+        .dash-icon { color: var(--secondary); background: var(--primary-light); width: 32px; height: 32px; border-radius: 50%; display: flex; justify-content: center; align-items: center; }
+        .dash-icon svg { width: 16px; height: 16px; }
+        .dash-title { font-size: 0.8rem; color: var(--text-muted); }
+        .dash-number { font-size: 1.5rem; font-weight: 700; }
+        
+        /* Conversation List */
+        .section-title { font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; }
+        .chat-list { display: flex; flex-direction: column; gap: 12px; padding-bottom: 40px; }
+        .chat-item { padding: 12px; display: flex; gap: 12px; align-items: center; cursor: pointer; position: relative; transition: background 0.15s, transform 0.1s; -webkit-tap-highlight-color: transparent; }
+        .chat-item:hover { background: var(--surface-hover); }
+        .chat-item:active { transform: scale(0.98); background: var(--surface-hover); }
+        
+        .avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; background: var(--border); position: relative; }
+        .avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+        .bot-indicator { position: absolute; bottom: -2px; right: -2px; background: var(--surface-solid); border-radius: 50%; padding: 2px; }
+        .bot-indicator svg { width: 14px; height: 14px; color: var(--primary); }
+
+        .chat-info { flex: 1; display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
+        .chat-header-row { display: flex; justify-content: space-between; align-items: center; }
+        .client-name { font-weight: 600; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .chat-time { font-size: 0.7rem; color: var(--text-muted); }
+        
+        .chat-message-row { display: flex; align-items: center; gap: 4px; }
+        .last-msg { font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+        
+        .chat-meta { display: flex; gap: 8px; margin-top: 4px; align-items: center; }
+        .order-status { font-size: 0.7rem; padding: 2px 8px; border-radius: 8px; font-weight: 600; }
+        .status-route { background: rgba(37, 211, 102, 0.1); color: var(--success); }
+        .status-pending { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+        .delivery-meta { font-size: 0.7rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+        .delivery-meta svg { width: 12px; height: 12px; }
+
+        .chat-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+        .unread-badge { background: var(--secondary); color: #fff; font-size: 0.7rem; font-weight: 700; width: 20px; height: 20px; border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4); }
+        .call-btn { color: var(--success); background: rgba(37, 211, 102, 0.1); width: 28px; height: 28px; border-radius: 50%; display: flex; justify-content: center; align-items: center; transition: all 0.2s; flex-shrink:0; }
+        .call-btn:hover { background: var(--success); color: #fff; }
+        .call-btn svg { width: 14px; height: 14px; }
+        
+        /* Action buttons in chat header */
+        .chat-header-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+        .action-icon-btn { width: 32px; height: 32px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+        .action-icon-btn svg { width: 16px; height: 16px; }
+        .action-register { background: var(--primary-light); color: var(--primary); }
+        .action-delete { background: rgba(239,68,68,0.1); color: var(--danger); }
+        .action-location { background: rgba(37,211,102,0.1); color: var(--success); }
+        .action-icon-btn:active { transform: scale(0.9); }
+
+        /* Selection mode bar */
+        .select-bar { display: none; padding: 12px 20px; background: var(--surface-solid); border-bottom: 1px solid var(--border); align-items: center; gap: 12px; flex-shrink: 0; }
+        .select-bar.show { display: flex; }
+        .select-bar button { padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+        .select-all-btn { background: var(--primary-light); color: var(--primary); }
+        .delete-selected-btn { background: rgba(239,68,68,0.1); color: var(--danger); margin-left: auto; }
+        .cancel-select-btn { background: var(--surface-hover); color: var(--text-muted); }
+        
+        /* Checkbox in chat item */
+        .chat-checkbox { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); display: none; align-items: center; justify-content: center; flex-shrink: 0; }
+        .select-mode .chat-checkbox { display: flex; }
+        .chat-checkbox.checked { background: var(--primary); border-color: var(--primary); }
+        .chat-checkbox.checked::after { content: '✓'; color: #fff; font-size: 0.7rem; font-weight: bold; }
+
+        /* =========================================
+           4. CHAT VIEW INTERFACE
+           ========================================= */
+        .chat-header { background: var(--surface); backdrop-filter: var(--blur); border-bottom: 1px solid var(--border); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-shrink: 0; box-shadow: var(--shadow-soft); z-index: 10; }
+        .back-btn { color: var(--text-main); display: flex; align-items: center; gap: 8px; font-weight: 500; }
+        .chat-header-info { display: flex; align-items: center; gap: 12px; }
+        .chat-header-texts { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+        .chat-header-name { font-weight: 600; font-size: 1rem; }
+        .chat-header-status { font-size: 0.75rem; color: var(--success); display: flex; align-items: center; gap: 4px; }
+        
+        .chat-body { padding: 16px 20px 16px 20px; flex: 1; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+        .day-separator { text-align: center; margin: 16px 0; position: relative; }
+        .day-separator span { background: var(--surface-solid); padding: 4px 12px; border-radius: 12px; font-size: 0.7rem; color: var(--text-muted); border: 1px solid var(--border); }
+        
+        .bubble-wrapper { display: flex; flex-direction: column; animation: slideUpFade 0.4s ease forwards; opacity: 0; transform: translateY(10px); }
+        .bubble-wrapper.bot { align-items: flex-end; }
+        .bubble-wrapper.client { align-items: flex-start; }
+        
+        .bubble { max-width: 80%; padding: 12px 16px; position: relative; display: flex; flex-direction: column; gap: 4px; box-shadow: var(--shadow-soft); }
+        .bubble-wrapper.bot .bubble { background: var(--bubble-bot); color: var(--text-bot); border-radius: var(--radius-md) var(--radius-md) 0 var(--radius-md); }
+        .bubble-wrapper.client .bubble { background: var(--bubble-client); color: var(--text-main); border-radius: var(--radius-md) var(--radius-md) var(--radius-md) 0; border: 1px solid var(--border); }
+        
+        .bubble-sender { font-size: 0.7rem; font-weight: 700; display: flex; align-items: center; gap: 4px; opacity: 0.8; margin-bottom: 2px; }
+        .bubble-text { font-size: 0.95rem; line-height: 1.4; }
+        .bubble-meta { font-size: 0.65rem; align-self: flex-end; opacity: 0.7; display: flex; align-items: center; gap: 4px; margin-top: 4px; }
+        .bubble-meta svg { width: 12px; height: 12px; }
+
+        /* Input Area */
+        .chat-footer { width: 100%; background: var(--surface); backdrop-filter: var(--blur); border-top: 1px solid var(--border); padding: 12px 20px; z-index: 10; display: flex; flex-direction: column; gap: 12px; flex-shrink: 0; }
+        .quick-replies { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+        .quick-replies::-webkit-scrollbar { display: none; }
+        .qr-btn { background: var(--surface-solid); border: 1px solid var(--border); padding: 6px 12px; border-radius: 16px; font-size: 0.75rem; color: var(--text-main); white-space: nowrap; transition: all 0.2s; }
+        .qr-btn:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+        
+        .input-row { display: flex; align-items: center; gap: 12px; }
+        .action-btns { display: flex; gap: 8px; color: var(--text-muted); }
+        .action-btns button { color: inherit; padding: 4px; transition: color 0.2s; }
+        .action-btns button:hover { color: var(--primary); }
+        
+        .input-field { flex: 1; background: var(--surface-solid); border: 1px solid var(--border); border-radius: 24px; padding: 10px 16px; font-size: 0.9rem; color: var(--text-main); outline: none; transition: border 0.3s; }
+        .input-field:focus { border-color: var(--primary); }
+        .input-field::placeholder { color: var(--text-muted); }
+        
+        .send-btn { background: var(--primary); color: #fff; width: 40px; height: 40px; border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 12px var(--primary-light); transition: transform 0.2s; }
+        .send-btn:active { transform: scale(0.9); }
+
+        /* =========================================
+           5. ANIMATIONS & MICRO-INTERACTIONS
+           ========================================= */
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUpFade { to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(37, 211, 102, 0); } 100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); } }
+        
+        /* Ripple Effect */
+        .ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple-anim 600ms linear; background-color: rgba(255, 255, 255, 0.4); }
+        @keyframes ripple-anim { to { transform: scale(4); opacity: 0; } }
+
+        /* =========================================
+           6. DESKTOP LAYOUT (2 columnas) — DEBE IR AL FINAL
+           para ganar en cascada a las reglas base de .view
+           ========================================= */
+        @media (min-width: 768px) {
+          body { overflow: hidden; }
+          .app-container { max-width: 100%; width: 100%; height: 100vh; height: 100dvh; box-shadow: none; flex-direction: row; }
+          .view { position: relative; top: auto; left: auto; padding-top: 0; transform: none !important; opacity: 1 !important; pointer-events: auto !important; }
+          .view-main { width: 380px; min-width: 380px; height: 100vh; height: 100dvh; padding: 20px; border-right: 1px solid var(--border); z-index: 1; }
+          .view-main.hidden { transform: none !important; opacity: 1 !important; pointer-events: auto !important; }
+          .view-chat { width: calc(100% - 380px); height: 100vh; height: 100dvh; padding-top: 0; transform: none !important; opacity: 1 !important; z-index: 1; }
+          .view-chat .back-btn { display: none; }
+        }
+
+
+        /* =========================================
+           7. NUEVO CHAT MODAL & FAB (v7)
+           ========================================= */
+        .fab-btn { position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px; background: linear-gradient(135deg, var(--primary), var(--secondary)); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(10,88,202,0.4); cursor: pointer; z-index: 100; transition: transform 0.2s; }
+        .fab-btn:active { transform: scale(0.9); }
+        .fab-btn svg { width: 24px; height: 24px; color: #fff; }
+        .fab-btn.hidden { display: none; }
+        
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 9999; padding: 20px; }
+        .modal-overlay.show { display: flex; }
+        .modal-content { background: var(--surface-solid); width: 100%; max-width: 400px; border-radius: 20px; padding: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); animation: slideUp 0.3s ease-out; max-height: 90vh; overflow-y: auto; }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 20px; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+        .modal-input-group { margin-bottom: 16px; }
+        .modal-label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600; }
+        .modal-input { width: 100%; padding: 12px 16px; background: var(--bg-app); border: 1px solid var(--border); border-radius: 12px; color: var(--text-main); font-size: 0.95rem; }
+        .modal-input:focus { border-color: var(--primary); }
+        .modal-btns { display: flex; gap: 12px; margin-top: 24px; }
+        .modal-btn { flex: 1; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 0.9rem; cursor: pointer; text-align: center; transition: transform 0.1s; border: none; font-family: inherit; }
+        .modal-btn:active { transform: scale(0.97); }
+        .modal-btn-primary { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #fff; }
+        .modal-btn-secondary { background: var(--surface-hover); color: var(--text-muted); border: 1px solid var(--border); }
+        .modal-btn-excel { background: rgba(37,211,102,0.1); color: var(--success); border: 1px solid rgba(37,211,102,0.3); width: 100%; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <!-- ================= MAIN VIEW ================= -->
+        <main class="view view-main scrollable" id="mainView">
+            
+            <!-- Premium Header -->
+            <header class="glass-panel premium-header ripple-target">
+                <div class="header-top">
+                    <div class="brand">
+                        <svg viewBox="0 0 24 24"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7v1a4 4 0 0 1-4 4h-1v1a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-1H7a4 4 0 0 1-4-4v-1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"></path><path d="M9 13v.01"></path><path d="M15 13v.01"></path></svg>
+                        ClienteTrack IA
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <div class="status-badge">
+                            <span class="dot"></span> Bot Online
+                        </div>
+                        <!-- THEME SWITCHER (estático en el header principal) -->
+                        <div class="theme-selector">
+                            <button class="theme-toggle-btn" onclick="toggleThemeMenu()" title="Cambiar tema">
+                                <svg viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                            </button>
+                            <div class="theme-dropdown" id="themeDropdown">
+                                <div class="theme-dropdown-label">Temas</div>
+                                <div class="theme-option" onclick="setTheme('base');toggleThemeMenu()">
+                                    <div class="theme-option-dot t-base"></div> RiderTrack
+                                </div>
+                                <div class="theme-option" onclick="setTheme('apple');toggleThemeMenu()">
+                                    <div class="theme-option-dot t-apple"></div> Apple
+                                </div>
+                                <div class="theme-option" onclick="setTheme('gaming');toggleThemeMenu()">
+                                    <div class="theme-option-dot t-gaming"></div> Gaming
+                                </div>
+                                <div class="theme-option" onclick="setTheme('future');toggleThemeMenu()">
+                                    <div class="theme-option-dot t-future"></div> Future
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="header-stats">
+                    <div class="stat-item">
+                        <span class="stat-value" id="stat-activos">0</span>
+                        <span class="stat-label">Activos</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="stat-msjs">0</span>
+                        <span class="stat-label">Msjs Hoy</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="stat-promedio">0m</span>
+                        <span class="stat-label">Promedio</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Cards -->
+            <section class="dashboard">
+                <div class="glass-panel dash-card ripple-target">
+                    <div class="dash-icon"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><polyline points="16 11 18 13 22 9"></polyline></svg></div>
+                    <span class="dash-title">Entregados</span>
+                    <span class="dash-number" id="stat-entregados">0</span>
+                </div>
+                <div class="glass-panel dash-card ripple-target">
+                    <div class="dash-icon" style="color: var(--warning); background: rgba(245, 158, 11, 0.1);"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div>
+                    <span class="dash-title">Pendientes</span>
+                    <span class="dash-number" id="stat-pendientes">0</span>
+                </div>
+            </section>
+
+            <!-- Conversation List -->
+            <div class="section-title">
+                Conversaciones Activas
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button onclick="toggleSelectMode()" style="background:var(--primary-light);color:var(--primary);padding:4px 10px;border-radius:8px;font-size:0.7rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;">
+                        <svg viewBox="0 0 24 24" style="width:14px;height:14px;"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                        Seleccionar
+                    </button>
+                    <button onclick="limpiarTodo()" style="background:rgba(239,68,68,0.1);color:var(--danger);padding:4px 10px;border-radius:8px;font-size:0.7rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;">
+                        <svg viewBox="0 0 24 24" style="width:14px;height:14px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        Limpiar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Selection bar -->
+            <div class="select-bar" id="selectBar">
+                <button class="cancel-select-btn" onclick="cancelSelectMode()">Cancelar</button>
+                <button class="select-all-btn" onclick="selectAll()">Seleccionar todos</button>
+                <button class="delete-selected-btn" onclick="borrarSeleccionados()">🗑️ Borrar</button>
+            </div>
+            
+            <div class="chat-list" id="chatList">
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center;color:var(--text-muted);">
+                    <div style="font-size:50px;margin-bottom:12px;opacity:0.5;">⏳</div>
+                    <div style="font-size:0.9rem;font-weight:600;color:var(--text-main);">Cargando mensajes</div>
+                    <div style="font-size:0.78rem;margin-top:4px;">Conectando con Firebase...</div>
+                </div>
+            </div>
+        </main>
+
+        <!-- ================= CHAT VIEW ================= -->
+        <section class="view view-chat" id="chatView">
+            
+            <header class="chat-header">
+                <div class="chat-header-info">
+                    <button class="back-btn" onclick="closeChat()">
+                        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    </button>
+                    <div class="avatar" id="chatAvatar" style="width: 36px; height: 36px;">
+                        <span style="font-weight:700;font-size:0.9rem;color:#fff;display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,#0A58CA,#8B5CF6);">💬</span>
+                    </div>
+                </div>
+                <div class="chat-header-texts">
+                    <span class="chat-header-name" id="chatHeaderName">Cliente</span>
+                    <span class="chat-header-status"><span class="dot" style="width: 6px; height:6px;"></span> <span id="chatHeaderPhone">+51 ...</span></span>
+                </div>
+                <div class="chat-header-actions">
+                    <button class="action-icon-btn action-location" onclick="enviarUbicacion()" title="Enviar ubicación">
+                        <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                    </button>
+                    <button class="action-icon-btn action-register" onclick="registrarCliente()" title="Registrar cliente">
+                        <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line></svg>
+                    </button>
+                    <button class="action-icon-btn action-delete" onclick="borrarChat()" title="Borrar chat">
+                        <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                </div>
+            </header>
+
+            <div class="chat-body scrollable" id="chatBody">
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;color:var(--text-muted);">
+                    <div style="font-size:40px;margin-bottom:8px;opacity:0.5;">💬</div>
+                    <div style="font-size:0.85rem;">Selecciona una conversación</div>
+                </div>
+            </div>
+            <!-- Chat Footer (Input) -->
+            <footer class="chat-footer">
+                <div class="quick-replies">
+                    <button class="qr-btn" onclick="enviarRapido('Ya llegué 📍')">Ya llegué</button>
+                    <button class="qr-btn" onclick="enviarRapido('Salgo en 2 min 🚀')">Salgo en 2 min</button>
+                    <button class="qr-btn" onclick="enviarRapido('Ya envié la foto ✅')">Envíe foto</button>
+                </div>
+                <div class="input-row">
+                    <div class="action-btns">
+                        <button title="Ubicación"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></button>
+                        <button title="Código QR"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg></button>
+                        <button title="Sugerencia IA"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg></button>
+                    </div>
+                    <input type="text" class="input-field" id="msgInput" placeholder="Escribe un mensaje..." onkeydown="if(event.key==='Enter')enviarMensaje()">
+                    <button class="send-btn" onclick="enviarMensaje()" id="sendBtn">
+                        <svg viewBox="0 0 24 24" style="width: 18px; margin-left: 2px;"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    </button>
+                </div>
+            </footer>
+        </section>
+
+    </div>
+
+    <!-- ================= JAVASCRIPT ================= -->
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ===== FIREBASE CONFIG =====
+const firebaseConfig = {
+  apiKey: "AIzaSyAzDl7gaS40JoXt9OoCPzG9FyaVPz_O34I",
+  authDomain: "ridertrack-93c8a.firebaseapp.com",
+  projectId: "ridertrack-93c8a",
+  storageBucket: "ridertrack-93c8a.firebasestorage.app",
+  messagingSenderId: "851606828420",
+  appId: "1:851606828420:web:873a892a091394693e59d1"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const UID_BOT = 'K8wx9X5GGOfindI1RGtIIQN3UGr1';
+
+// ===== ESTADO =====
+var conversaciones = {};
+var telefonoActual = null;
+var listenerIniciado = false;
+var selectMode = false;
+var selectedChats = new Set();
+
+// ===== NAVIGATION (original) =====
+const mainView = document.getElementById('mainView');
+const chatView = document.getElementById('chatView');
+
+function openChat(telefono) {
+  telefonoActual = telefono;
+  var conv = conversaciones[telefono];
+  if(!conv) return;
+  
+  document.getElementById('chatHeaderName').textContent = conv.nombre;
+  document.getElementById('chatHeaderPhone').textContent = '+51 ' + telefono;
+  
+  var avatarEl = document.querySelector('#chatView .avatar');
+  if(avatarEl){
+    avatarEl.innerHTML = '<span style="font-weight:700;font-size:0.9rem;color:#fff;display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;' + colorAvatar(conv.nombre || telefono) + '">' + (conv.nombre||'?').charAt(0).toUpperCase() + '</span>';
+  }
+  
+  renderMensajes(telefono);
+  marcarLeido(telefono);
+  
+  mainView.classList.add('hidden');
+  chatView.classList.add('active');
+  
+  var fab = document.querySelector('.fab-btn');
+  if(fab) fab.classList.add('hidden');
+  
+  setTimeout(function(){ var inp = document.getElementById('msgInput'); if(inp) inp.focus(); }, 300);
+}
+
+function closeChat() {
+  mainView.classList.remove('hidden');
+  chatView.classList.remove('active');
+  telefonoActual = null;
+  var fab = document.querySelector('.fab-btn');
+  if(fab) fab.classList.remove('hidden');
+}
+
+// ===== THEME SWITCHER =====
+function setTheme(themeName) {
+  document.documentElement.setAttribute('data-theme', themeName);
+}
+
+function toggleThemeMenu(){
+  var dd = document.getElementById('themeDropdown');
+  if(dd) dd.classList.toggle('show');
+}
+
+// Cerrar menu al hacer click fuera
+document.addEventListener('click', function(e){
+  var selector = document.querySelector('.theme-selector');
+  var dd = document.getElementById('themeDropdown');
+  if(selector && dd && !selector.contains(e.target)){
+    dd.classList.remove('show');
+  }
+});
+
+// ===== RIPPLE EFFECT (solo botones, NO en chat-items) =====
+function createRipple(event) {
+  const button = event.currentTarget;
+  if(button.classList.contains('chat-item')) return; // Skip en chat items
+  const circle = document.createElement("span");
+  const diameter = Math.max(button.clientWidth, button.clientHeight);
+  const radius = diameter / 2;
+  circle.style.width = circle.style.height = diameter + "px";
+  const rect = button.getBoundingClientRect();
+  circle.style.left = (event.clientX - rect.left - radius) + "px";
+  circle.style.top = (event.clientY - rect.top - radius) + "px";
+  circle.classList.add("ripple");
+  const ripple = button.getElementsByClassName("ripple")[0];
+  if (ripple) { ripple.remove(); }
+  button.appendChild(circle);
+}
+
+const buttons = document.querySelectorAll('.ripple-target');
+for (const button of buttons) {
+  button.addEventListener("mousedown", createRipple);
+}
+
+// ===== FIREBASE LISTENER =====
+function iniciarListener(){
+  if(listenerIniciado) return;
+  listenerIniciado = true;
+  console.log('Iniciando listener...');
+  
+  db.collection('mensajes_clientes')
+    .orderBy('timestamp', 'desc')
+    .limit(200)
+    .onSnapshot(function(snapshot){
+      conversaciones = {};
+      var msjsHoy = 0;
+      var inicioHoy = new Date();
+      inicioHoy.setHours(0,0,0,0);
+      
+      snapshot.forEach(function(doc){
+        var m = doc.data();
+        var tel = m.telefono || 'desconocido';
+        
+        if(!conversaciones[tel]){
+          conversaciones[tel] = {
+            telefono: tel,
+            nombre: m.nombre || ('Cliente ' + tel.slice(-4)),
+            mensajes: [],
+            noLeidos: 0,
+            ultimoTimestamp: 0,
+            jidOriginal: m.jidOriginal || '',
+            estadoFallido: false
+          };
+        }
+        
+        conversaciones[tel].mensajes.push(m);
+        
+        if(m.timestamp > conversaciones[tel].ultimoTimestamp){
+          conversaciones[tel].ultimoTimestamp = m.timestamp;
+          conversaciones[tel].ultimoMensaje = m.texto;
+          conversaciones[tel].ultimoOrigen = m.origen;
+        }
+        
+        if(!m.leido && m.tipo === 'entrante') conversaciones[tel].noLeidos++;
+        if(m.estado === 'fallido') conversaciones[tel].estadoFallido = true;
+        if(m.timestamp > inicioHoy.getTime()) msjsHoy++;
+      });
+      
+      // Actualizar stats
+      var numConv = Object.keys(conversaciones).length;
+      document.getElementById('stat-activos').textContent = numConv;
+      document.getElementById('stat-msjs').textContent = msjsHoy > 999 ? (msjsHoy/1000).toFixed(1)+'k' : msjsHoy;
+      document.getElementById('stat-promedio').textContent = numConv > 0 ? Math.round(msjsHoy/numConv) + 'm' : '0m';
+      document.getElementById('stat-entregados').textContent = '0';
+      document.getElementById('stat-pendientes').textContent = '0';
+      
+      renderLista();
+      if(telefonoActual) renderMensajes(telefonoActual);
+    }, function(err){
+      console.error('Error:', err);
+      document.getElementById('chatList').innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center;color:var(--text-muted);"><div style="font-size:50px;margin-bottom:12px;">⚠️</div><div style="font-size:0.9rem;font-weight:600;color:var(--text-main);">Error de conexión</div><div style="font-size:0.78rem;margin-top:4px;">' + err.message + '</div></div>';
+    });
+}
+
+// ===== RENDER LISTA =====
+function renderLista(){
+  var cont = document.getElementById('chatList');
+  var arr = Object.values(conversaciones).sort(function(a,b){ return b.ultimoTimestamp - a.ultimoTimestamp; });
+  
+  if(arr.length === 0){
+    cont.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center;color:var(--text-muted);"><div style="font-size:50px;margin-bottom:12px;opacity:0.5;">📭</div><div style="font-size:0.9rem;font-weight:600;color:var(--text-main);">Sin conversaciones</div><div style="font-size:0.78rem;margin-top:4px;">Cuando los clientes escriban al bot aparecerán aquí</div></div>';
+    return;
+  }
+  
+  var html = '';
+  arr.forEach(function(c){
+    var inicial = (c.nombre || '?').charAt(0).toUpperCase();
+    var tiempo = formatearTiempo(c.ultimoTimestamp);
+    var pref = c.ultimoOrigen === 'rudy' ? 'Tú: ' : (c.ultimoOrigen === 'bot' ? '🤖 ' : '');
+    var isSelected = selectedChats.has(c.telefono);
+    
+    html += '<div class="glass-panel chat-item ripple-target" onclick="' + (selectMode ? 'toggleSelect(\''+c.telefono+'\')' : 'openChat(\''+c.telefono+'\')') + '" style="' + (isSelected ? 'border-color:var(--primary);background:var(--primary-light);' : '') + '">';
+    html += '<div class="chat-checkbox ' + (isSelected ? 'checked' : '') + '"></div>';
+    html += '<div class="avatar"><span style="font-weight:700;font-size:1.1rem;color:#fff;display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;' + colorAvatar(c.nombre || c.telefono) + '">' + inicial + '</span></div>';
+    html += '<div class="chat-info">';
+    html += '<div class="chat-header-row"><span class="client-name">' + escapeHtml(c.nombre) + '</span><span class="chat-time">' + tiempo + '</span></div>';
+    html += '<div class="chat-message-row"><span class="last-msg">' + pref + escapeHtml(c.ultimoMensaje || '') + '</span></div>';
+    html += '</div>';
+    html += '<div class="chat-actions">';
+    if(c.noLeidos > 0) html += '<span class="unread-badge">' + c.noLeidos + '</span>';
+    html += '<button class="call-btn" onclick="event.stopPropagation();llamarCliente(\''+c.telefono+'\')"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></button>';
+    html += '</div></div>';
+  });
+  
+  cont.innerHTML = html;
+  
+  // Re-aplicar ripple a nuevos elementos (solo mousedown, NO touchstart)
+  var newButtons = cont.querySelectorAll('.ripple-target');
+  newButtons.forEach(function(button){
+    button.addEventListener("mousedown", createRipple);
+  });
+}
+
+// ===== RENDER MENSAJES =====
+function renderMensajes(telefono){
+  var conv = conversaciones[telefono];
+  if(!conv) return;
+  var cont = document.getElementById('chatBody');
+  var mensajes = conv.mensajes.slice().sort(function(a,b){ return a.timestamp - b.timestamp; });
+  
+  var html = '';
+  var fechaAnt = null;
+  var hoy = new Date().toLocaleDateString('es-PE', {day:'numeric', month:'short'});
+  var ayer = new Date(Date.now()-86400000).toLocaleDateString('es-PE', {day:'numeric', month:'short'});
+  
+  mensajes.forEach(function(m){
+    var f = new Date(m.timestamp);
+    var fechaStr = f.toLocaleDateString('es-PE', {day:'numeric', month:'short'});
+    if(fechaStr !== fechaAnt){
+      var label = fechaStr === hoy ? 'Hoy' : (fechaStr === ayer ? 'Ayer' : fechaStr);
+      html += '<div class="day-separator"><span>' + label + '</span></div>';
+      fechaAnt = fechaStr;
+    }
+    
+    var tiempo = f.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
+    var esEntrante = m.tipo === 'entrante';
+    var clase = esEntrante ? 'client' : (m.origen === 'bot' ? 'bot' : 'bot');
+    
+    html += '<div class="bubble-wrapper ' + clase + '">';
+    html += '<div class="bubble">';
+    if(!esEntrante){
+      if(m.origen === 'bot') html += '<span class="bubble-sender"><svg viewBox="0 0 24 24" style="width:12px;height:12px;"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7v1a4 4 0 0 1-4 4h-1v1a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-1H7a4 4 0 0 1-4-4v-1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"></path></svg> Asistente IA</span>';
+      else if(m.origen === 'rudy') html += '<span class="bubble-sender">👤 Rudy</span>';
+    }
+    html += '<span class="bubble-text">' + escapeHtml(m.texto || '') + '</span>';
+    html += '<span class="bubble-meta">' + tiempo + '</span>';
+    html += '</div></div>';
+  });
+  
+  html += '<div style="height:40px;"></div>';
+  cont.innerHTML = html;
+  cont.scrollTop = cont.scrollHeight;
+}
+
+// ===== ENVIAR MENSAJE =====
+async function enviarMensaje(){
+  var inp = document.getElementById('msgInput');
+  if(!inp) return;
+  var texto = inp.value.trim();
+  if(!texto || !telefonoActual) return;
+  
+  var btn = document.getElementById('sendBtn');
+  if(btn) btn.style.opacity = '0.5';
+  
+  try {
+    var conv = conversaciones[telefonoActual];
+    await db.collection('respuestas_manuales').add({
+      telefono: telefonoActual,
+      nombre: conv ? conv.nombre : 'Cliente',
+      texto: texto,
+      enviado: false,
+      timestamp: Date.now(),
+      creadoPor: 'clienteTrack',
+      jidOriginal: conv ? conv.jidOriginal : '',
+      uid: UID_BOT
+    });
+    
+    inp.value = '';
+    
+    if(!conversaciones[telefonoActual]){
+      conversaciones[telefonoActual] = { telefono:telefonoActual, nombre:conv?conv.nombre:'Cliente', mensajes:[], noLeidos:0, ultimoTimestamp:Date.now() };
+    }
+    conversaciones[telefonoActual].mensajes.push({
+      telefono:telefonoActual, nombre:conv?conv.nombre:'Cliente', texto:texto, tipo:'saliente', origen:'rudy', timestamp:Date.now()
+    });
+    conversaciones[telefonoActual].ultimoTimestamp = Date.now();
+    conversaciones[telefonoActual].ultimoMensaje = texto;
+    conversaciones[telefonoActual].ultimoOrigen = 'rudy';
+    renderMensajes(telefonoActual);
+  } catch(err){
+    alert('Error: ' + err.message);
+  } finally {
+    if(btn) btn.style.opacity = '1';
+  }
+}
+
+// ===== MARCAR LEIDO =====
+async function marcarLeido(tel){
+  if(!conversaciones[tel]) return;
+  conversaciones[tel].noLeidos = 0;
+  try {
+    var snap = await db.collection('mensajes_clientes').where('telefono','==',tel).where('leido','==',false).get();
+    var batch = db.batch();
+    snap.forEach(function(d){ batch.update(d.ref, {leido:true}); });
+    await batch.commit();
+    renderLista();
+  } catch(e){ console.warn(e); }
+}
+
+// ===== REGISTRAR CLIENTE =====
+async function registrarCliente(){
+  if(!telefonoActual) return;
+  var conv = conversaciones[telefonoActual];
+  var nombreActual = conv ? conv.nombre : '';
+  if(nombreActual.startsWith('Cliente ')) nombreActual = '';
+  
+  var nombre = prompt('Nombre del cliente:', nombreActual);
+  if(!nombre || !nombre.trim()) return;
+  nombre = nombre.trim();
+  
+  try {
+    await db.collection('clientes_registrados').doc(telefonoActual).set({
+      telefono: telefonoActual, nombre: nombre, registradoAt: new Date().toISOString()
+    }, {merge:true});
+    
+    if(conversaciones[telefonoActual]) conversaciones[telefonoActual].nombre = nombre;
+    document.getElementById('chatHeaderName').textContent = nombre;
+    renderLista();
+    renderMensajes(telefonoActual);
+    alert('✅ Cliente registrado: ' + nombre);
+  } catch(err){ alert('Error: ' + err.message); }
+}
+
+// ===== BORRAR CHAT =====
+async function borrarChat(){
+  if(!telefonoActual) return;
+  if(!confirm('¿Borrar todos los mensajes de esta conversación?')) return;
+  
+  try {
+    var snap = await db.collection('mensajes_clientes').where('telefono','==',telefonoActual).get();
+    var batch = db.batch();
+    snap.forEach(function(d){ batch.delete(d.ref); });
+    await batch.commit();
+    delete conversaciones[telefonoActual];
+    closeChat();
+    renderLista();
+    alert('✅ Chat borrado');
+  } catch(err){ alert('Error: ' + err.message); }
+}
+
+// ===== LLAMAR CLIENTE =====
+function llamarCliente(tel){
+  if(tel) window.open('tel:+51' + tel.replace(/\D/g,''), '_self');
+}
+
+// ===== ENVIAR RÁPIDO =====
+async function enviarRapido(texto){
+  if(!telefonoActual) return;
+  var inp = document.getElementById('msgInput');
+  if(inp) inp.value = texto;
+  await enviarMensaje();
+}
+
+// ===== ENVIAR UBICACIÓN =====
+async function enviarUbicacion(){
+  if(!telefonoActual) return;
+  if(!navigator.geolocation){
+    alert('Tu navegador no soporta GPS');
+    return;
+  }
+  var btn = event ? event.target.closest('button') : null;
+  if(btn){ btn.style.opacity = '0.5'; }
+  
+  navigator.geolocation.getCurrentPosition(async function(pos){
+    var lat = pos.coords.latitude;
+    var lng = pos.coords.longitude;
+    var mapsUrl = 'https://www.google.com/maps?q=' + lat + ',' + lng;
+    var texto = 'Mi ubicacion actual: ' + mapsUrl;
+    
+    var inp = document.getElementById('msgInput');
+    if(inp) inp.value = texto;
+    await enviarMensaje();
+    if(btn) btn.style.opacity = '1';
+  }, function(err){
+    alert('No se pudo obtener tu ubicacion: ' + err.message);
+    if(btn) btn.style.opacity = '1';
+  }, { enableHighAccuracy: true, timeout: 10000 });
+}
+
+// ===== MODO SELECCIÓN =====
+function toggleSelectMode(){
+  selectMode = !selectMode;
+  selectedChats.clear();
+  var bar = document.getElementById('selectBar');
+  var list = document.getElementById('chatList');
+  if(selectMode){
+    bar.classList.add('show');
+    list.classList.add('select-mode');
+  } else {
+    bar.classList.remove('show');
+    list.classList.remove('select-mode');
+  }
+  renderLista();
+}
+
+function cancelSelectMode(){
+  selectMode = false;
+  selectedChats.clear();
+  document.getElementById('selectBar').classList.remove('show');
+  document.getElementById('chatList').classList.remove('select-mode');
+  renderLista();
+}
+
+function selectAll(){
+  var arr = Object.keys(conversaciones);
+  if(selectedChats.size === arr.length){
+    selectedChats.clear();
+  } else {
+    arr.forEach(function(tel){ selectedChats.add(tel); });
+  }
+  renderLista();
+}
+
+function toggleSelect(tel){
+  if(selectedChats.has(tel)){
+    selectedChats.delete(tel);
+  } else {
+    selectedChats.add(tel);
+  }
+  renderLista();
+}
+
+async function borrarSeleccionados(){
+  if(selectedChats.size === 0){
+    alert('Selecciona al menos un chat');
+    return;
+  }
+  if(!confirm('Borrar ' + selectedChats.size + ' conversacion(es)?')) return;
+  
+  try {
+    var arr = Array.from(selectedChats);
+    for(var i = 0; i < arr.length; i++){
+      var tel = arr[i];
+      var snap = await db.collection('mensajes_clientes').where('telefono','==',tel).get();
+      var batch = db.batch();
+      snap.forEach(function(d){ batch.delete(d.ref); });
+      await batch.commit();
+      delete conversaciones[tel];
+    }
+    cancelSelectMode();
+    alert('OK ' + arr.length + ' chat(s) borrado(s)');
+  } catch(err){
+    alert('Error: ' + err.message);
+  }
+}
+
+// ===== LIMPIAR TODO =====
+async function limpiarTodo(){
+  if(Object.keys(conversaciones).length === 0){
+    alert('No hay conversaciones para borrar');
+    return;
+  }
+  if(!confirm('Borrar TODAS las conversaciones? Esto eliminara todos los mensajes.')) return;
+  if(!confirm('Estas SEGURO? Esta accion no se puede deshacer.')) return;
+  
+  try {
+    var snap = await db.collection('mensajes_clientes').get();
+    var batch = db.batch();
+    snap.forEach(function(d){ batch.delete(d.ref); });
+    await batch.commit();
+    conversaciones = {};
+    renderLista();
+    alert('OK Todos los mensajes borrados');
+  } catch(err){
+    alert('Error: ' + err.message);
+  }
+}
+
+// ===== HELPERS =====
+function formatearTiempo(ts){
+  if(!ts) return '';
+  var diff = Date.now() - ts;
+  var min = Math.floor(diff/60000);
+  var h = Math.floor(diff/3600000);
+  var d = Math.floor(diff/86400000);
+  if(min<1) return 'ahora';
+  if(min<60) return min+'m';
+  if(h<24) return h+'h';
+  if(d===1) return 'ayer';
+  if(d<7) return d+'d';
+  return new Date(ts).toLocaleDateString('es-PE',{day:'numeric',month:'short'});
+}
+
+function escapeHtml(t){
+  var d = document.createElement('div');
+  d.textContent = t||'';
+  return d.innerHTML;
+}
+
+function colorAvatar(str){
+  var colores = [
+    'background:linear-gradient(135deg,#FF6B6B,#EE5A6F)',
+    'background:linear-gradient(135deg,#4ECDC4,#44A08D)',
+    'background:linear-gradient(135deg,#FFE66D,#FF6B6B)',
+    'background:linear-gradient(135deg,#A8E6CF,#3D8B7A)',
+    'background:linear-gradient(135deg,#FF8C94,#FF6B6B)',
+    'background:linear-gradient(135deg,#C7CEEA,#7986CB)',
+    'background:linear-gradient(135deg,#25D366,#128C7E)',
+    'background:linear-gradient(135deg,#7B2CBF,#5a189a)',
+  ];
+  var hash = 0;
+  for(var i=0;i<(str||'').length;i++) hash = str.charCodeAt(i)+((hash<<5)-hash);
+  return colores[Math.abs(hash)%colores.length];
+}
+
+// ===== INICIAR =====
+window.addEventListener('DOMContentLoaded', function(){
+  iniciarListener();
+});
+
+// ===== NUEVO CHAT (v7) =====
+function abrirModalNuevoChat(){
+  document.getElementById('newChatModal').classList.add('show');
+}
+
+function cerrarModalNuevoChat(){
+  document.getElementById('newChatModal').classList.remove('show');
+  document.getElementById('newChatName').value = '';
+  document.getElementById('newChatPhone').value = '';
+  document.getElementById('newChatProd').value = '';
+  document.getElementById('newChatMonto').value = '';
+}
+
+async function guardarNuevoChat(){
+  var nombre = document.getElementById('newChatName').value.trim();
+  var telefono = document.getElementById('newChatPhone').value.trim().replace(/\D/g, '');
+  var producto = document.getElementById('newChatProd').value.trim();
+  var monto = document.getElementById('newChatMonto').value.trim();
+
+  if(!nombre || !telefono){ alert('Nombre y numero son obligatorios'); return; }
+  if(telefono.length !== 9){ alert('El numero debe tener 9 digitos'); return; }
+
+  var btn = document.getElementById('saveNewChatBtn');
+  btn.textContent = 'Guardando...';
+  btn.style.opacity = '0.5';
+
+  try {
+    await db.collection('clientes_registrados').doc(telefono).set({
+      telefono: telefono, nombre: nombre, prod: producto, cobrar: monto,
+      registradoAt: new Date().toISOString(), origen: 'clienteTrack_manual'
+    }, { merge: true });
+
+    var rutaDoc = await db.collection('ruta_activa').doc(UID_BOT).get();
+    if(rutaDoc.exists){
+      var clientes = rutaDoc.data().clientes || [];
+      var existe = clientes.find(function(c){ return (c.cel || '').includes(telefono); });
+      if(!existe){
+        clientes.push({ cel: telefono, nombre: nombre, prod: producto, cobrar: monto, dir: '', dist: '' });
+        await db.collection('ruta_activa').doc(UID_BOT).set({ clientes: clientes }, { merge: true });
+      }
+    }
+
+    if(!conversaciones[telefono]){
+      conversaciones[telefono] = { telefono: telefono, nombre: nombre, mensajes: [], noLeidos: 0,
+        ultimoTimestamp: Date.now(), ultimoMensaje: 'Nuevo chat registrado', ultimoOrigen: 'rudy',
+        jidOriginal: '51' + telefono + '@s.whatsapp.net' };
+    }
+    renderLista();
+    cerrarModalNuevoChat();
+    alert('OK Cliente registrado: ' + nombre);
+  } catch(err){ alert('Error: ' + err.message); }
+  finally { btn.textContent = 'Guardar'; btn.style.opacity = '1'; }
+}
+
+// ===== IMPORTAR EXCEL (con SheetJS) =====
+async function importarExcel(event){
+  var file = event.target.files[0];
+  if(!file) return;
+  
+  var btn = document.querySelector('.modal-btn-excel');
+  if(btn) btn.textContent = 'Importando...';
+  
+  try {
+    var reader = new FileReader();
+    reader.onload = async function(e){
+      var data = new Uint8Array(e.target.result);
+      var workbook = XLSX.read(data, { type: 'array' });
+      var sheet = workbook.Sheets[workbook.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      
+      var count = 0;
+      var errores = 0;
+      
+      for(var i = 0; i < rows.length; i++){
+        var row = rows[i];
+        if(!row || row.length < 4) continue;
+        
+        var nombre = String(row[2] || '').trim();
+        var telefono = String(row[3] || '').trim().replace(/\D/g, '');
+        
+        if(telefono.startsWith('51') && telefono.length > 9) telefono = telefono.slice(2);
+        
+        var producto = String(row[7] || '').trim();
+        var monto = String(row[6] || '').trim();
+        var dir = String(row[4] || '').trim();
+        var dist = String(row[5] || '').trim();
+        
+        if(nombre && nombre !== 'NOMBRE CLIENTE' && telefono.length === 9){
+          try {
+            await db.collection('clientes_registrados').doc(telefono).set({
+              telefono: telefono, nombre: nombre, prod: producto, cobrar: monto,
+              dir: dir, dist: dist, registradoAt: new Date().toISOString(), origen: 'clienteTrack_excel'
+            }, { merge: true });
+            
+            var rutaDoc = await db.collection('ruta_activa').doc(UID_BOT).get();
+            if(rutaDoc.exists){
+              var clientes = rutaDoc.data().clientes || [];
+              var existe = clientes.find(function(c){ return (c.cel || '').includes(telefono); });
+              if(!existe){
+                clientes.push({ cel: telefono, nombre: nombre, prod: producto, cobrar: monto, dir: dir, dist: dist });
+                await db.collection('ruta_activa').doc(UID_BOT).set({ clientes: clientes }, { merge: true });
+              }
+            }
+            
+            if(!conversaciones[telefono]){
+              conversaciones[telefono] = { telefono: telefono, nombre: nombre, mensajes: [], noLeidos: 0,
+                ultimoTimestamp: Date.now(), ultimoMensaje: 'Importado de Excel', ultimoOrigen: 'rudy',
+                jidOriginal: '51' + telefono + '@s.whatsapp.net' };
+            }
+            count++;
+          } catch(e){ errores++; }
+        }
+      }
+      
+      renderLista();
+      cerrarModalNuevoChat();
+      alert('Importados: ' + count + ' clientes\nErrores: ' + errores);
+      if(btn) btn.textContent = 'Importar desde Excel (Masivo)';
+    };
+    reader.readAsArrayBuffer(file);
+  } catch(err){
+    alert('Error: ' + err.message);
+    if(btn) btn.textContent = 'Importar desde Excel (Masivo)';
+  }
+}
+</script>
+
+<!-- Boton Flotante (+) -->
+<div class="fab-btn" onclick="abrirModalNuevoChat()">
+  <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+</div>
+
+<!-- Modal Nuevo Chat -->
+<div class="modal-overlay" id="newChatModal">
+  <div class="modal-content">
+    <div class="modal-title">
+      <svg viewBox="0 0 24 24" style="width:24px;height:24px;color:var(--primary);"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line></svg>
+      Registrar Clientes
+    </div>
+    
+    <button class="modal-btn modal-btn-excel" onclick="document.getElementById('excelFileInput').click()">
+      <svg viewBox="0 0 24 24" style="width:18px;height:18px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+      Importar desde Excel (Masivo)
+    </button>
+    <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" style="display:none" onchange="importarExcel(event)">
+    
+    <div style="text-align:center; color:var(--text-muted); font-size:0.8rem; margin: 10px 0 20px; position: relative;">
+      <span style="background: var(--surface-solid); padding: 0 10px; position: relative; z-index: 1;">O registrar uno por uno</span>
+      <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--border); z-index: 0;"></div>
+    </div>
+    
+    <div class="modal-input-group">
+      <label class="modal-label">Nombre Completo *</label>
+      <input type="text" class="modal-input" id="newChatName" placeholder="Ej: Juan Perez">
+    </div>
+    
+    <div class="modal-input-group">
+      <label class="modal-label">Numero de Celular (9 digitos) *</label>
+      <input type="tel" class="modal-input" id="newChatPhone" placeholder="Ej: 987654321" maxlength="9">
+    </div>
+    
+    <div class="modal-input-group">
+      <label class="modal-label">Producto (Opcional)</label>
+      <input type="text" class="modal-input" id="newChatProd" placeholder="Ej: Masajeador">
+    </div>
+    
+    <div class="modal-input-group">
+      <label class="modal-label">Monto a cobrar (Opcional)</label>
+      <input type="number" class="modal-input" id="newChatMonto" placeholder="Ej: 89.90">
+    </div>
+    
+    <div class="modal-btns">
+      <button class="modal-btn modal-btn-secondary" onclick="cerrarModalNuevoChat()">Cancelar</button>
+      <button class="modal-btn modal-btn-primary" id="saveNewChatBtn" onclick="guardarNuevoChat()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
