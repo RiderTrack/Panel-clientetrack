@@ -594,14 +594,51 @@ function iniciarListener(){
   listenerIniciado = true;
   console.log('Iniciando listener...');
   
+  // 1. Primero cargar clientes de ruta_activa (para que aparezcan aunque no tengan mensajes)
+  db.collection('ruta_activa').doc(UID_BOT).onSnapshot(function(doc){
+    if(doc.exists){
+      var data = doc.data();
+      var clientes = data.clientes || [];
+      clientes.forEach(function(c){
+        var tel = (c.cel || '').replace(/\D/g, '');
+        if(tel.startsWith('51') && tel.length > 9) tel = tel.slice(2);
+        if(tel && !conversaciones[tel]){
+          conversaciones[tel] = {
+            telefono: tel,
+            nombre: c.nombre || ('Cliente ' + tel.slice(-4)),
+            mensajes: [],
+            noLeidos: 0,
+            ultimoTimestamp: 0,
+            jidOriginal: '51' + tel + '@s.whatsapp.net',
+            estadoFallido: false,
+            ultimoMensaje: 'Sin mensajes aún',
+            ultimoOrigen: ''
+          };
+        } else if(tel && conversaciones[tel] && c.nombre){
+          // Actualizar nombre si viene de ruta_activa
+          conversaciones[tel].nombre = c.nombre;
+        }
+      });
+      renderLista();
+      actualizarStats();
+    }
+  }, function(err){ console.warn('Error ruta_activa:', err.message); });
+  
+  // 2. Cargar mensajes en tiempo real
   db.collection('mensajes_clientes')
     .orderBy('timestamp', 'desc')
     .limit(200)
     .onSnapshot(function(snapshot){
-      conversaciones = {};
       var msjsHoy = 0;
       var inicioHoy = new Date();
       inicioHoy.setHours(0,0,0,0);
+      
+      // NO borrar conversaciones existentes, solo actualizar mensajes
+      // Primero limpiar los mensajes de todas las conversaciones
+      Object.keys(conversaciones).forEach(function(tel){
+        conversaciones[tel].mensajes = [];
+        conversaciones[tel].noLeidos = 0;
+      });
       
       snapshot.forEach(function(doc){
         var m = doc.data();
@@ -632,20 +669,25 @@ function iniciarListener(){
         if(m.timestamp > inicioHoy.getTime()) msjsHoy++;
       });
       
-      // Actualizar stats
-      var numConv = Object.keys(conversaciones).length;
-      document.getElementById('stat-activos').textContent = numConv;
-      document.getElementById('stat-msjs').textContent = msjsHoy > 999 ? (msjsHoy/1000).toFixed(1)+'k' : msjsHoy;
-      document.getElementById('stat-promedio').textContent = numConv > 0 ? Math.round(msjsHoy/numConv) + 'm' : '0m';
-      document.getElementById('stat-entregados').textContent = '0';
-      document.getElementById('stat-pendientes').textContent = '0';
-      
+      actualizarStats(msjsHoy);
       renderLista();
       if(telefonoActual) renderMensajes(telefonoActual);
     }, function(err){
       console.error('Error:', err);
       document.getElementById('chatList').innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center;color:var(--text-muted);"><div style="font-size:50px;margin-bottom:12px;">⚠️</div><div style="font-size:0.9rem;font-weight:600;color:var(--text-main);">Error de conexión</div><div style="font-size:0.78rem;margin-top:4px;">' + err.message + '</div></div>';
     });
+}
+
+// ===== ACTUALIZAR STATS =====
+function actualizarStats(msjsHoy){
+  var numConv = Object.keys(conversaciones).length;
+  document.getElementById('stat-activos').textContent = numConv;
+  if(msjsHoy !== undefined){
+    document.getElementById('stat-msjs').textContent = msjsHoy > 999 ? (msjsHoy/1000).toFixed(1)+'k' : msjsHoy;
+    document.getElementById('stat-promedio').textContent = numConv > 0 ? Math.round(msjsHoy/numConv) + 'm' : '0m';
+  }
+  document.getElementById('stat-entregados').textContent = '0';
+  document.getElementById('stat-pendientes').textContent = '0';
 }
 
 // ===== RENDER LISTA =====
