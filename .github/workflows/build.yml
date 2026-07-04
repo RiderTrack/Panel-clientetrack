@@ -11,12 +11,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -26,15 +26,23 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      # CLAVE: crear www/ y copiar el index.html ahí (webDir de Capacitor)
+      - name: Prepare Web Assets
+        run: |
+          mkdir -p www
+          cp index.html www/
+
       - name: Add Android Platform
         run: npx cap add android
 
-      - name: Copy Web Assets
-        run: npx cap copy
+      - name: Sync Web Assets
+        run: npx cap sync android
 
       - name: Build APK
         working-directory: android
-        run: ./gradlew assembleDebug
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
