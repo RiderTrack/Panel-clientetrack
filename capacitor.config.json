@@ -1,0 +1,8 @@
+{
+  "appId": "com.ridertrack.clientetrack",
+  "appName": "ClienteTrack",
+  "webDir": ".",
+  "server": {
+    "androidScheme": "https"
+  }
+}
