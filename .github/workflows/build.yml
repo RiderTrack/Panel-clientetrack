@@ -26,13 +26,14 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      # CLAVE: el panel TrackVerse es la portada, ClienteTrack va al lado
+      # El panel es la portada; los modulos van al lado
       - name: Prepare Web Assets
         run: |
           mkdir -p www
           cp index.html www/
           cp clientetrack.html www/
           cp clientes.html www/
+          cp pedidos.html www/
 
       - name: Add Android Platform
         run: npx cap add android
