@@ -176,7 +176,7 @@ function montoDe(v){
   return isNaN(n) ? 0 : n;
 }
 function clasificar(c){
-  var e = String(c.estado || '').toLowerCase().trim();
+  var e = String(c.st || c.estado || '').toLowerCase().trim();
   if(ESTADOS_ENTREGA.indexOf(e) !== -1) return 'entregado';
   if(ESTADOS_FALLIDOS.indexOf(e) !== -1) return 'fallido';
   return 'pendiente';
