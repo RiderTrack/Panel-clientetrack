@@ -26,19 +26,19 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      # CLAVE: el panel TrackVerse es la portada, ClienteTrack va al lado
       - name: Prepare Web Assets
         run: |
           mkdir -p www
           cp index.html www/
+          cp clientetrack.html www/
 
       - name: Add Android Platform
         run: npx cap add android
 
-      # CLAVE: permisos para geolocalizacion y microfono (audios)
       - name: Add Android Permissions
         run: |
           sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />|' android/app/src/main/AndroidManifest.xml
-          echo "=== Permisos en el manifest ==="
           grep "uses-permission" android/app/src/main/AndroidManifest.xml
 
       - name: Sync Web Assets
@@ -53,5 +53,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ClienteTrack-APK
+          name: TrackVerse-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
