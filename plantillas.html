@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Plantillas | TrackVerse</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+:root {
+  --blue-track: #0052FF;
+  --purple-alpha: #7C3AED;
+  --green-wa: #10B981;
+  --bg-color: #F8FAFC;
+  --surface: rgba(255,255,255,0.85);
+  --text-main: #0F172A;
+  --text-muted: #64748B;
+  --border-light: rgba(226,232,240,0.6);
+  --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.05);
+  --shadow-glass: 0 10px 40px -10px rgba(0,0,0,0.08);
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --transition: all 0.3s cubic-bezier(0.25,0.8,0.25,1);
+}
+* { margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; -webkit-tap-highlight-color:transparent; }
+body { background:var(--bg-color); color:var(--text-main); min-height:100vh; min-height:100dvh; overflow:hidden;
+  background-image: radial-gradient(at 0% 0%, rgba(0,82,255,0.06) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(124,58,237,0.06) 0px, transparent 50%);
+}
+.glass { background:var(--surface); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid var(--border-light); box-shadow:var(--shadow-glass); }
+
+/* Layout */
+.app { display:flex; flex-direction:column; height:100vh; height:100dvh; max-width:900px; margin:0 auto; }
+@media(min-width:768px){ .app { max-width:100%; flex-direction:row; } }
+
+/* Sidebar de categorías */
+.sidebar { display:none; width:240px; flex-shrink:0; border-right:1px solid var(--border-light); padding:16px; overflow-y:auto; }
+@media(min-width:768px){ .sidebar { display:block; } }
+.cat-title { font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:700; margin:16px 0 8px; }
+.cat-item { padding:10px 14px; border-radius:8px; font-size:0.85rem; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:8px; transition:var(--transition); margin-bottom:2px; }
+.cat-item:hover { background:rgba(100,116,139,0.08); }
+.cat-item.active { background:rgba(0,82,255,0.1); color:var(--blue-track); }
+.cat-item .count { margin-left:auto; font-size:0.7rem; background:rgba(100,116,139,0.1); padding:2px 8px; border-radius:10px; }
+
+/* Header móvil */
+.header-mob { padding:12px 16px; border-bottom:1px solid var(--border-light); display:flex; align-items:center; gap:12px; }
+.header-mob h1 { font-size:1.1rem; font-weight:700; flex:1; }
+.header-mob select { padding:8px 12px; border-radius:8px; border:1px solid var(--border-light); font-size:0.8rem; background:var(--surface); }
+@media(min-width:768px){ .header-mob { display:none; } }
+
+/* Main */
+.main { flex:1; overflow-y:auto; padding:20px; -webkit-overflow-scrolling:touch; }
+.main::-webkit-scrollbar { width:4px; }
+.main::-webkit-scrollbar-thumb { background:rgba(100,116,139,0.3); border-radius:2px; }
+
+/* Toolbar */
+.toolbar { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+.search-input { flex:1; min-width:200px; padding:10px 14px; border-radius:8px; border:1px solid var(--border-light); font-size:0.88rem; background:var(--surface); color:var(--text-main); outline:none; }
+.search-input:focus { border-color:var(--blue-track); }
+.btn-new { padding:10px 20px; background:linear-gradient(135deg,var(--blue-track),var(--purple-alpha)); color:#fff; border:none; border-radius:8px; font-weight:600; font-size:0.85rem; cursor:pointer; display:flex; align-items:center; gap:6px; transition:var(--transition); }
+.btn-new:active { transform:scale(0.97); }
+
+/* Grid de plantillas */
+.grid { display:grid; grid-template-columns:1fr; gap:12px; }
+@media(min-width:640px){ .grid { grid-template-columns:1fr 1fr; } }
+@media(min-width:900px){ .grid { grid-template-columns:1fr 1fr 1fr; } }
+
+.tpl-card { background:var(--surface); border:1px solid var(--border-light); border-radius:var(--radius-md); padding:16px; cursor:pointer; transition:var(--transition); position:relative; }
+.tpl-card:hover { box-shadow:var(--shadow-md); transform:translateY(-2px); }
+.tpl-card:active { transform:scale(0.98); }
+.tpl-cat { font-size:0.62rem; text-transform:uppercase; letter-spacing:0.05em; font-weight:700; color:var(--blue-track); margin-bottom:6px; }
+.tpl-name { font-weight:600; font-size:0.92rem; margin-bottom:8px; }
+.tpl-preview { font-size:0.78rem; color:var(--text-muted); line-height:1.5; white-space:pre-wrap; max-height:60px; overflow:hidden; text-overflow:ellipsis; }
+.tpl-actions { position:absolute; top:12px; right:12px; display:flex; gap:4px; opacity:0; transition:opacity 0.2s; }
+.tpl-card:hover .tpl-actions { opacity:1; }
+.tpl-action-btn { width:28px; height:28px; border-radius:6px; border:none; background:rgba(100,116,139,0.1); color:var(--text-muted); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:0.75rem; }
+.tpl-action-btn:hover { background:rgba(0,82,255,0.15); color:var(--blue-track); }
+.tpl-action-btn.del:hover { background:rgba(239,68,68,0.15); color:#EF4444; }
+
+/* Empty */
+.empty { text-align:center; padding:60px 20px; color:var(--text-muted); }
+.empty i { font-size:3rem; margin-bottom:12px; opacity:0.3; }
+
+/* Modal Editor */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(8px); display:none; align-items:flex-end; justify-content:center; z-index:9999; }
+.modal-overlay.show { display:flex; }
+@media(min-width:768px){ .modal-overlay { align-items:center; } }
+
+.modal-sheet { background:#fff; width:100%; max-width:560px; border-radius:var(--radius-lg) var(--radius-lg) 0 0; padding:24px; max-height:90vh; overflow-y:auto; animation:slideUp 0.3s cubic-bezier(0.25,0.8,0.25,1); }
+@media(min-width:768px){ .modal-sheet { border-radius:var(--radius-lg); } }
+@keyframes slideUp { from{transform:translateY(40px);opacity:0;} to{transform:translateY(0);opacity:1;} }
+
+.modal-title { font-size:1.2rem; font-weight:700; margin-bottom:20px; display:flex; align-items:center; gap:8px; }
+
+.field { margin-bottom:16px; }
+.field label { display:block; font-size:0.68rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; }
+.field input, .field select, .field textarea { width:100%; padding:10px 14px; border:1px solid var(--border-light); border-radius:8px; font-size:0.88rem; font-family:inherit; color:var(--text-main); background:rgba(100,116,139,0.04); outline:none; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color:var(--blue-track); }
+.field textarea { resize:vertical; min-height:100px; line-height:1.6; }
+
+/* Chips de variables */
+.chips-bar { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+.chip-var { padding:4px 10px; border-radius:6px; background:rgba(0,82,255,0.1); color:var(--blue-track); font-size:0.72rem; font-weight:600; cursor:pointer; transition:var(--transition); border:1px solid rgba(0,82,255,0.2); }
+.chip-var:hover { background:var(--blue-track); color:#fff; }
+
+/* Vista previa */
+.preview-box { background:rgba(37,211,102,0.06); border:1px solid rgba(37,211,102,0.2); border-radius:8px; padding:14px; margin-top:8px; }
+.preview-box .preview-label { font-size:0.68rem; color:var(--green-wa); font-weight:700; margin-bottom:6px; }
+.preview-box .preview-content { font-size:0.82rem; line-height:1.6; white-space:pre-wrap; color:var(--text-main); }
+
+/* Botones del modal */
+.modal-btns { display:flex; gap:10px; margin-top:24px; }
+.modal-btn { flex:1; padding:12px; border-radius:8px; border:none; font-weight:600; font-size:0.88rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; transition:var(--transition); }
+.modal-btn:active { transform:scale(0.97); }
+.btn-save { background:linear-gradient(135deg,var(--blue-track),var(--purple-alpha)); color:#fff; }
+.btn-test { background:rgba(16,185,129,0.12); color:var(--green-wa); border:1px solid rgba(16,185,129,0.3); }
+.btn-cancel { background:rgba(100,116,139,0.1); color:var(--text-muted); }
+
+/* Loading */
+.loading { text-align:center; padding:40px; color:var(--text-muted); }
+.loading i { animation:spin 1s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Sidebar -->
+  <div class="sidebar glass">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:16px;"><i class="fa-solid fa-message"></i> Plantillas</h2>
+    <div class="cat-title">Categorías</div>
+    <div class="cat-item active" onclick="setCategoria('todas', this)">📂 Todas <span class="count" id="c-todas">0</span></div>
+    <div class="cat-item" onclick="setCategoria('saludos', this)">👋 Saludos <span class="count" id="c-saludos">0</span></div>
+    <div class="cat-item" onclick="setCategoria('pagos', this)">💳 Pagos <span class="count" id="c-pagos">0</span></div>
+    <div class="cat-item" onclick="setCategoria('entrega', this)">🚚 Entrega <span class="count" id="c-entrega">0</span></div>
+    <div class="cat-item" onclick="setCategoria('fallidos', this)">⚠️ Fallidos <span class="count" id="c-fallidos">0</span></div>
+    <div class="cat-item" onclick="setCategoria('personalizado', this)">✨ Personalizado <span class="count" id="c-personalizado">0</span></div>
+  </div>
+
+  <!-- Main -->
+  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+    <!-- Header móvil -->
+    <div class="header-mob glass">
+      <h1><i class="fa-solid fa-message"></i> Plantillas</h1>
+      <select id="catMob" onchange="setCategoria(this.value, null)">
+        <option value="todas">📂 Todas</option>
+        <option value="saludos">👋 Saludos</option>
+        <option value="pagos">💳 Pagos</option>
+        <option value="entrega">🚚 Entrega</option>
+        <option value="fallidos">⚠️ Fallidos</option>
+        <option value="personalizado">✨ Personalizado</option>
+      </select>
+    </div>
+
+    <!-- Content -->
+    <div class="main">
+      <div class="toolbar">
+        <input type="text" class="search-input" id="searchInput" placeholder="Buscar plantilla..." oninput="filtrar()">
+        <button class="btn-new" onclick="nuevaPlantilla()"><i class="fa-solid fa-plus"></i> Nueva</button>
+      </div>
+
+      <div class="grid" id="grid">
+        <div class="loading"><i class="fa-solid fa-spinner"></i> Cargando plantillas...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Editor -->
+<div class="modal-overlay" id="editorModal" onclick="if(event.target===this)cerrarEditor()">
+  <div class="modal-sheet">
+    <div class="modal-title">
+      <i class="fa-solid fa-pen-to-square" style="color:var(--blue-track);"></i>
+      <span id="editorTitulo">Nueva Plantilla</span>
+    </div>
+
+    <div class="field">
+      <label>Nombre de la plantilla</label>
+      <input type="text" id="tplNombre" placeholder="Ej: Aviso de llegada">
+    </div>
+
+    <div class="field">
+      <label>Categoría</label>
+      <select id="tplCategoria">
+        <option value="saludos">👋 Saludos</option>
+        <option value="pagos">💳 Pagos</option>
+        <option value="entrega">🚚 Entrega</option>
+        <option value="fallidos">⚠️ Fallidos</option>
+        <option value="personalizado">✨ Personalizado</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Mensaje</label>
+      <div class="chips-bar" id="chipsBar">
+        <span class="chip-var" onclick="insertarVar('{nombre}')">{nombre}</span>
+        <span class="chip-var" onclick="insertarVar('{producto}')">{producto}</span>
+        <span class="chip-var" onclick="insertarVar('{monto}')">{monto}</span>
+        <span class="chip-var" onclick="insertarVar('{direccion}')">{direccion}</span>
+        <span class="chip-var" onclick="insertarVar('{distrito}')">{distrito}</span>
+        <span class="chip-var" onclick="insertarVar('{telefono}')">{telefono}</span>
+        <span class="chip-var" onclick="insertarVar('{hora}')">{hora}</span>
+        <span class="chip-var" onclick="insertarVar('{fecha}')">{fecha}</span>
+      </div>
+      <textarea id="tplMensaje" placeholder="Escribe tu mensaje aquí... Usa *negrita*, _cursiva_ y las variables de arriba." oninput="actualizarPreview()"></textarea>
+    </div>
+
+    <div class="preview-box">
+      <div class="preview-label"><i class="fa-solid fa-eye"></i> Vista previa</div>
+      <div class="preview-content" id="previewContent">Escribe algo para ver la vista previa...</div>
+    </div>
+
+    <div class="modal-btns">
+      <button class="modal-btn btn-cancel" onclick="cerrarEditor()">Cancelar</button>
+      <button class="modal-btn btn-test" onclick="probarEnvio()"><i class="fa-brands fa-whatsapp"></i> Probar</button>
+      <button class="modal-btn btn-save" onclick="guardarPlantilla()"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyAzDl7gaS40JoXt9OoCPzG9FyaVPz_O34I",
+  authDomain: "ridertrack-93c8a.firebaseapp.com",
+  projectId: "ridertrack-93c8a",
+  storageBucket: "ridertrack-93c8a.firebasestorage.app",
+  messagingSenderId: "851606828420",
+  appId: "1:851606828420:web:873a892a091394693e59d1"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const UID_BOT = 'K8wx9X5GGOfindI1RGtIIQN3UGr1';
+
+// Estado
+var plantillas = [];
+var filtroCat = 'todas';
+var searchTerm = '';
+var editandoId = null;
+
+// Datos de prueba para vista previa
+var datosPrueba = {
+  nombre: 'Luis Vega',
+  producto: 'Masajeador con Infrarrojo',
+  monto: '89.90',
+  direccion: 'Mz Z Lote 22, Urb Pro',
+  distrito: 'San Martín de Porres',
+  telefono: '981 480 520',
+  hora: new Date().toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'}),
+  fecha: new Date().toLocaleDateString('es-PE')
+};
+
+// Cargar plantillas
+function cargarPlantillas(){
+  db.collection('plantillas_mensajes').onSnapshot(function(snapshot){
+    plantillas = [];
+    snapshot.forEach(function(doc){
+      plantillas.push({ id: doc.id, ...doc.data() });
+    });
+
+    // Si no hay plantillas, crear las predefinidas
+    if(plantillas.length === 0){
+      crearPredefinidas();
+    }
+
+    actualizarContadores();
+    render();
+  }, function(e){ console.warn('plantillas:', e.message); });
+}
+
+// Crear plantillas predefinidas
+async function crearPredefinidas(){
+  var predef = [
+    { nombre: 'Menú Principal', categoria: 'saludos', mensaje: '🌞 ¡Hola, {nombre}! 👋\n\nSoy el asistente de *Rudy Alen*, tu motorizado de *MATE* 🚚\n\n¿En qué te puedo ayudar hoy?\n\n1️⃣ ¿Cuánto debo pagar?\n2️⃣ ¿A qué hora llega mi pedido?\n3️⃣ ¿Qué me están trayendo?\n4️⃣ Número de Yape / QR de pago\n5️⃣ Cuentas bancarias\n6️⃣ Ya realicé mi pago ✅\n7️⃣ Hablar con el motorizado 📞\n8️⃣ No puedo recibir mi pedido hoy 📅\n9️⃣ Problema con mi pedido ⚠️\n\n_Responde con el número de tu consulta_ 😊' },
+    { nombre: 'Cuánto Pagar', categoria: 'pagos', mensaje: '💰 El monto de tu pedido es:\n*S/ {monto}*\n\n📦 Producto:\n> *{producto}*\n\n📲 Puedes pagar por:\n• *Yape / Plin* 📱\n• *Efectivo* 💵\n• *Transferencia* 🏦' },
+    { nombre: 'Aviso de Llegada', categoria: 'entrega', mensaje: '🚚 Hola, *{nombre}* 👋\n\nLe informo que estaré llegando en *15 minutos* ⏱️\n\n📦 Pedido: *{producto}*\n💰 Monto: *S/ {monto}*\n\n📲 Por favor mantenerse atento(a) al teléfono.' },
+    { nombre: 'Entrega Completada', categoria: 'entrega', mensaje: '✅ ¡*{nombre}*, tu pedido fue entregado!\n\n📦 *{producto}*\n💰 Monto cobrado: *S/ {monto}*\n\n¡Muchas gracias por tu preferencia! 🙌' },
+    { nombre: 'No Se Entregó', categoria: 'fallidos', mensaje: '😔 Hola, *{nombre}*\n\nHoy *no pudimos realizar tu entrega* en:\n📍 *{direccion}*, {distrito}\n\nPara *reprogramar* comunícate con *MATE*:\n📞 *956 203 893*' },
+    { nombre: 'Yape QR', categoria: 'pagos', mensaje: '📱 Número de *SOLO YAPE*:\n*980811297*\n\nA nombre de: `Lorenzo N. Tarazona T.`\n\n📦 Producto: *{producto}*\n💰 Monto: *S/ {monto}*\n\n📸 Envíame la captura del pago para confirmar.' },
+  ];
+
+  for(var i = 0; i < predef.length; i++){
+    await db.collection('plantillas_mensajes').add({
+      ...predef[i],
+      createdAt: new Date().toISOString()
+    });
+  }
+  console.log('Plantillas predefinidas creadas');
+}
+
+// Render
+function render(){
+  var cont = document.getElementById('grid');
+  var arr = plantillas.filter(function(p){
+    if(filtroCat !== 'todas' && p.categoria !== filtroCat) return false;
+    if(searchTerm){
+      var s = searchTerm.toLowerCase();
+      if(!(p.nombre||'').toLowerCase().includes(s) && !(p.mensaje||'').toLowerCase().includes(s)) return false;
+    }
+    return true;
+  });
+
+  if(arr.length === 0){
+    cont.innerHTML = '<div class="empty" style="grid-column:1/-1;"><i class="fa-solid fa-message"></i><p style="font-size:0.88rem;font-weight:600;margin-bottom:4px;">Sin plantillas</p><p style="font-size:0.75rem;">Toca "Nueva" para crear una</p></div>';
+    return;
+  }
+
+  var html = '';
+  arr.forEach(function(p){
+    var preview = (p.mensaje||'').replace(/\{nombre\}/g, datosPrueba.nombre)
+      .replace(/\{producto\}/g, datosPrueba.producto)
+      .replace(/\{monto\}/g, datosPrueba.monto)
+      .replace(/\{direccion\}/g, datosPrueba.direccion)
+      .replace(/\{distrito\}/g, datosPrueba.distrito)
+      .replace(/\{telefono\}/g, datosPrueba.telefono)
+      .replace(/\{hora\}/g, datosPrueba.hora)
+      .replace(/\{fecha\}/g, datosPrueba.fecha);
+
+    var catIcon = { saludos:'👋', pagos:'💳', entrega:'🚚', fallidos:'⚠️', personalizado:'✨' }[p.categoria] || '📄';
+
+    html += '<div class="tpl-card" onclick="editarPlantilla(\'' + p.id + '\')">';
+    html += '<div class="tpl-cat">' + catIcon + ' ' + (p.categoria||'personalizado') + '</div>';
+    html += '<div class="tpl-name">' + escapeHtml(p.nombre||'Sin nombre') + '</div>';
+    html += '<div class="tpl-preview">' + escapeHtml(preview.substring(0,120)) + (preview.length>120?'...':'') + '</div>';
+    html += '<div class="tpl-actions">';
+    html += '<button class="tpl-action-btn" onclick="event.stopPropagation();duplicarPlantilla(\'' + p.id + '\')" title="Duplicar"><i class="fa-solid fa-copy"></i></button>';
+    html += '<button class="tpl-action-btn del" onclick="event.stopPropagation();eliminarPlantilla(\'' + p.id + '\')" title="Eliminar"><i class="fa-solid fa-trash"></i></button>';
+    html += '</div>';
+    html += '</div>';
+  });
+
+  cont.innerHTML = html;
+}
+
+// Contadores
+function actualizarContadores(){
+  var cats = { todas:0, saludos:0, pagos:0, entrega:0, fallidos:0, personalizado:0 };
+  plantillas.forEach(function(p){
+    cats.todas++;
+    if(cats[p.categoria] !== undefined) cats[p.categoria]++;
+  });
+  for(var c in cats){
+    var el = document.getElementById('c-' + c);
+    if(el) el.textContent = cats[c];
+  }
+}
+
+// Filtros
+function setCategoria(cat, el){
+  filtroCat = cat;
+  document.querySelectorAll('.cat-item').forEach(function(c){ c.classList.remove('active'); });
+  if(el) el.classList.add('active');
+  var sel = document.getElementById('catMob');
+  if(sel) sel.value = cat;
+  render();
+}
+
+function filtrar(){
+  searchTerm = (document.getElementById('searchInput').value || '').toLowerCase().trim();
+  render();
+}
+
+// Editor
+function nuevaPlantilla(){
+  editandoId = null;
+  document.getElementById('editorTitulo').textContent = 'Nueva Plantilla';
+  document.getElementById('tplNombre').value = '';
+  document.getElementById('tplCategoria').value = 'personalizado';
+  document.getElementById('tplMensaje').value = '';
+  actualizarPreview();
+  document.getElementById('editorModal').classList.add('show');
+}
+
+function editarPlantilla(id){
+  var p = plantillas.find(function(x){ return x.id === id; });
+  if(!p) return;
+  editandoId = id;
+  document.getElementById('editorTitulo').textContent = 'Editar: ' + p.nombre;
+  document.getElementById('tplNombre').value = p.nombre || '';
+  document.getElementById('tplCategoria').value = p.categoria || 'personalizado';
+  document.getElementById('tplMensaje').value = p.mensaje || '';
+  actualizarPreview();
+  document.getElementById('editorModal').classList.add('show');
+}
+
+function cerrarEditor(){
+  document.getElementById('editorModal').classList.remove('show');
+  editandoId = null;
+}
+
+function insertarVar(v){
+  var ta = document.getElementById('tplMensaje');
+  var start = ta.selectionStart;
+  var end = ta.selectionEnd;
+  ta.value = ta.value.substring(0, start) + v + ta.value.substring(end);
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = start + v.length;
+  actualizarPreview();
+}
+
+function actualizarPreview(){
+  var msg = document.getElementById('tplMensaje').value;
+  var preview = msg.replace(/\{nombre\}/g, datosPrueba.nombre)
+    .replace(/\{producto\}/g, datosPrueba.producto)
+    .replace(/\{monto\}/g, datosPrueba.monto)
+    .replace(/\{direccion\}/g, datosPrueba.direccion)
+    .replace(/\{distrito\}/g, datosPrueba.distrito)
+    .replace(/\{telefono\}/g, datosPrueba.telefono)
+    .replace(/\{hora\}/g, datosPrueba.hora)
+    .replace(/\{fecha\}/g, datosPrueba.fecha);
+  document.getElementById('previewContent').textContent = preview || 'Escribe algo para ver la vista previa...';
+}
+
+async function guardarPlantilla(){
+  var nombre = document.getElementById('tplNombre').value.trim();
+  var categoria = document.getElementById('tplCategoria').value;
+  var mensaje = document.getElementById('tplMensaje').value.trim();
+
+  if(!nombre){ alert('Ponle un nombre a la plantilla'); return; }
+  if(!mensaje){ alert('Escribe el mensaje'); return; }
+
+  try {
+    if(editandoId){
+      await db.collection('plantillas_mensajes').doc(editandoId).set({
+        nombre: nombre, categoria: categoria, mensaje: mensaje,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } else {
+      await db.collection('plantillas_mensajes').add({
+        nombre: nombre, categoria: categoria, mensaje: mensaje,
+        createdAt: new Date().toISOString()
+      });
+    }
+    cerrarEditor();
+  } catch(e){ alert('Error: ' + e.message); }
+}
+
+async function eliminarPlantilla(id){
+  if(!confirm('¿Eliminar esta plantilla?')) return;
+  try { await db.collection('plantillas_mensajes').doc(id).delete(); }
+  catch(e){ alert('Error: ' + e.message); }
+}
+
+async function duplicarPlantilla(id){
+  var p = plantillas.find(function(x){ return x.id === id; });
+  if(!p) return;
+  try {
+    await db.collection('plantillas_mensajes').add({
+      nombre: p.nombre + ' (copia)', categoria: p.categoria, mensaje: p.mensaje,
+      createdAt: new Date().toISOString()
+    });
+  } catch(e){ alert('Error: ' + e.message); }
+}
+
+function probarEnvio(){
+  var msg = document.getElementById('tplMensaje').value;
+  var preview = msg.replace(/\{nombre\}/g, datosPrueba.nombre)
+    .replace(/\{producto\}/g, datosPrueba.producto)
+    .replace(/\{monto\}/g, datosPrueba.monto)
+    .replace(/\{direccion\}/g, datosPrueba.direccion)
+    .replace(/\{distrito\}/g, datosPrueba.distrito)
+    .replace(/\{telefono\}/g, datosPrueba.telefono)
+    .replace(/\{hora\}/g, datosPrueba.hora)
+    .replace(/\{fecha\}/g, datosPrueba.fecha);
+  window.open('https://wa.me/51907565569?text=' + encodeURIComponent(preview), '_blank');
+}
+
+// Helper
+function escapeHtml(t){
+  var d = document.createElement('div');
+  d.textContent = t || '';
+  return d.innerHTML;
+}
+
+// Iniciar
+cargarPlantillas();
+</script>
+
+</body>
+</html>
