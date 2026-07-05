@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrackVerse | Pedidos</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  :root{
+    --bg:#F4F7FE; --card:#FFFFFF; --border:#E2E8F0;
+    --blue:#0052FF; --green:#10B981; --amber:#F59E0B; --red:#EF4444; --purple:#7C3AED;
+    --text:#0F172A; --muted:#64748B;
+    --radius:20px; --shadow:0 4px 16px rgba(15,23,42,0.06);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'Inter',sans-serif; line-height:1.5;
+    min-height:100vh; min-height:100dvh;
+  }
+
+  .top{
+    position:sticky; top:0; z-index:50;
+    background:rgba(244,247,254,0.92); backdrop-filter:blur(10px);
+    padding:16px 16px 10px; border-bottom:1px solid var(--border);
+  }
+  .top h1{margin:0; font-size:1.35rem; font-weight:800; letter-spacing:-0.5px; display:flex; align-items:center; gap:10px;}
+  .top h1 i{color:var(--blue); font-size:1.1rem;}
+  .fecha{font-size:0.75rem; color:var(--muted); font-weight:500; text-transform:capitalize;}
+
+  /* ===== Totales ===== */
+  .totales{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;}
+  .total-card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:12px 14px; box-shadow:var(--shadow);}
+  .total-card .tk{font-size:0.62rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); display:flex; align-items:center; gap:5px;}
+  .total-card .tv{font-size:1.25rem; font-weight:800; letter-spacing:-0.5px; margin-top:2px;}
+  .total-card.cobrado .tv{color:var(--green);}
+  .total-card.pendiente .tv{color:var(--amber);}
+  .mini-stats{display:flex; gap:6px; margin-top:10px; font-size:0.68rem; font-weight:700;}
+  .mini{flex:1; text-align:center; border-radius:10px; padding:6px 4px;}
+  .mini.e{background:rgba(16,185,129,0.1); color:var(--green);}
+  .mini.p{background:rgba(245,158,11,0.1); color:#D97706;}
+  .mini.f{background:rgba(239,68,68,0.1); color:var(--red);}
+
+  /* ===== Filtros ===== */
+  .filtros{display:flex; gap:8px; margin-top:12px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none;}
+  .filtros::-webkit-scrollbar{display:none;}
+  .chip{
+    flex-shrink:0; background:var(--card); border:1px solid var(--border); border-radius:999px;
+    padding:7px 14px; font-size:0.76rem; font-weight:600; color:var(--muted); cursor:pointer;
+  }
+  .chip.activo{background:var(--text); border-color:var(--text); color:#fff;}
+  .orden-btn{
+    flex-shrink:0; margin-left:auto; background:var(--card); border:1px solid var(--border); border-radius:999px;
+    padding:7px 14px; font-size:0.76rem; font-weight:700; color:var(--blue); cursor:pointer;
+    display:flex; align-items:center; gap:6px;
+  }
+  .orden-btn.activo{background:var(--blue); border-color:var(--blue); color:#fff;}
+
+  /* ===== Lista de pedidos ===== */
+  main{padding:14px 16px 90px; max-width:760px; margin:0 auto;}
+  .grupo-distrito{
+    font-size:0.7rem; font-weight:800; text-transform:uppercase; letter-spacing:0.6px;
+    color:var(--muted); margin:16px 2px 8px; display:flex; align-items:center; gap:8px;
+  }
+  .grupo-distrito::after{content:''; flex:1; height:1px; background:var(--border);}
+  .pedido{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px; margin-bottom:10px; box-shadow:var(--shadow);
+    border-left:4px solid var(--amber);
+  }
+  .pedido.entregado{border-left-color:var(--green);}
+  .pedido.fallido{border-left-color:var(--red); opacity:0.85;}
+  .ped-head{display:flex; align-items:flex-start; gap:10px;}
+  .ped-nombre{font-weight:700; font-size:0.94rem; flex:1; min-width:0;}
+  .ped-monto{font-weight:800; font-size:1rem; color:var(--green); flex-shrink:0;}
+  .ped-prod{font-size:0.8rem; color:var(--muted); margin-top:3px;}
+  .ped-prod i{font-size:0.7rem; margin-right:4px;}
+  .ped-dir{font-size:0.76rem; color:var(--muted); margin-top:6px; display:flex; align-items:flex-start; gap:5px;}
+  .ped-dir i{margin-top:2px; font-size:0.7rem; color:var(--purple);}
+  .ped-foot{display:flex; align-items:center; gap:8px; margin-top:11px;}
+  .estado-badge{
+    font-size:0.64rem; font-weight:800; padding:5px 11px; border-radius:9px;
+    text-transform:uppercase; letter-spacing:0.4px; display:flex; align-items:center; gap:5px;
+  }
+  .estado-badge.pendiente{background:rgba(245,158,11,0.12); color:#D97706;}
+  .estado-badge.entregado{background:rgba(16,185,129,0.12); color:var(--green);}
+  .estado-badge.fallido{background:rgba(239,68,68,0.1); color:var(--red);}
+  .ped-btns{margin-left:auto; display:flex; gap:8px;}
+  .ped-btn{
+    width:36px; height:36px; border-radius:12px; border:1px solid var(--border);
+    background:var(--card); display:flex; align-items:center; justify-content:center;
+    color:var(--text); text-decoration:none; font-size:0.9rem;
+  }
+  .ped-btn:active{transform:scale(0.92);}
+  .ped-btn.wa{color:var(--green);}
+  .ped-btn.mapa{color:var(--purple);}
+
+  .vacio{text-align:center; color:var(--muted); padding:60px 20px; font-size:0.9rem;}
+  .vacio i{font-size:2.4rem; display:block; margin-bottom:12px; opacity:0.4;}
+
+  /* ===== Escritorio — al final (regla de oro #3) ===== */
+  @media (min-width: 768px){
+    .totales{grid-template-columns:1fr 1fr 220px;}
+    .mini-stats{margin-top:0; flex-direction:column; gap:6px;}
+    .lista-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+    .lista-grid .pedido{margin-bottom:0;}
+    .grupo-distrito{grid-column:1 / -1;}
+  }
+</style>
+</head>
+<body>
+
+  <div class="top">
+    <h1><i class="fa-solid fa-box-open"></i> Pedidos <span class="fecha" id="fecha"></span></h1>
+    <div class="totales">
+      <div class="total-card cobrado">
+        <span class="tk"><i class="fa-solid fa-sack-dollar"></i> Cobrado hoy</span>
+        <div class="tv" id="tCobrado">S/ 0</div>
+      </div>
+      <div class="total-card pendiente">
+        <span class="tk"><i class="fa-solid fa-hourglass-half"></i> Por cobrar</span>
+        <div class="tv" id="tPendiente">S/ 0</div>
+      </div>
+      <div class="mini-stats">
+        <div class="mini e" id="mE">✓ 0 entregados</div>
+        <div class="mini p" id="mP">⏳ 0 pendientes</div>
+        <div class="mini f" id="mF">✕ 0 fallidos</div>
+      </div>
+    </div>
+    <div class="filtros">
+      <div class="chip activo" onclick="setFiltro('todos', this)">Todos</div>
+      <div class="chip" onclick="setFiltro('pendiente', this)">⏳ Pendientes</div>
+      <div class="chip" onclick="setFiltro('entregado', this)">✓ Entregados</div>
+      <div class="chip" onclick="setFiltro('fallido', this)">✕ Fallidos</div>
+      <div class="orden-btn" id="ordenBtn" onclick="toggleOrden()"><i class="fa-solid fa-map"></i> Por distrito</div>
+    </div>
+  </div>
+
+  <main>
+    <div id="lista"></div>
+    <div class="vacio" id="vacio" style="display:none;"><i class="fa-solid fa-box-open"></i>No hay pedidos en la ruta de hoy</div>
+  </main>
+
+<script>
+// ===== FIREBASE (mismo proyecto RiderTrack) =====
+var firebaseConfig = {
+  apiKey: "AIzaSyAzDl7gaS40JoXt9OoCPzG9FyaVPz_O34I",
+  authDomain: "ridertrack-93c8a.firebaseapp.com",
+  projectId: "ridertrack-93c8a",
+  storageBucket: "ridertrack-93c8a.firebasestorage.app",
+  messagingSenderId: "851606828420",
+  appId: "1:851606828420:web:873a892a091394693e59d1"
+};
+firebase.initializeApp(firebaseConfig);
+var db = firebase.firestore();
+var UID_BOT = 'K8wx9X5GGOfindI1RGtIIQN3UGr1';
+
+// ===== Estados (los mismos de RiderTrack / dashboard) =====
+var ESTADOS_ENTREGA = ['efectivo','yape-rudy','cambio','mixto','yape-efectivo','pos','transferencia','yape-plin','pago-link','jose-smith','empresa'];
+var ESTADOS_FALLIDOS = ['fallida','reprogramar','rechazado','devuelto','ausente','no-contesta','cancelado'];
+
+function normTel(t){
+  t = String(t || '').replace(/\D/g, '');
+  if(t.startsWith('51') && t.length > 9) t = t.slice(2);
+  return t;
+}
+function escapeHtml(s){
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function montoDe(v){
+  var n = parseFloat(String(v || '0').replace(/[^0-9.]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+function clasificar(c){
+  var e = String(c.estado || '').toLowerCase().trim();
+  if(ESTADOS_ENTREGA.indexOf(e) !== -1) return 'entregado';
+  if(ESTADOS_FALLIDOS.indexOf(e) !== -1) return 'fallido';
+  return 'pendiente';
+}
+
+// ===== Estado local =====
+var pedidos = [];
+var filtroActual = 'todos';
+var ordenDistrito = false;
+
+document.getElementById('fecha').textContent = '· ' + new Date().toLocaleDateString('es-PE', {weekday:'long', day:'2-digit', month:'long'});
+
+// ===== Fuente: ruta_activa en vivo =====
+db.collection('ruta_activa').doc(UID_BOT).onSnapshot(function(doc){
+  pedidos = doc.exists ? (doc.data().clientes || []) : [];
+  render();
+}, function(e){ console.warn('ruta_activa:', e.message); });
+
+// ===== Render =====
+function render(){
+  var entregados = 0, pendientes = 0, fallidos = 0, cobrado = 0, porCobrar = 0;
+  pedidos.forEach(function(c){
+    var cls = clasificar(c);
+    var m = montoDe(c.cobrar);
+    if(cls === 'entregado'){ entregados++; cobrado += m; }
+    else if(cls === 'fallido'){ fallidos++; }
+    else { pendientes++; porCobrar += m; }
+  });
+  document.getElementById('tCobrado').textContent = 'S/ ' + cobrado.toFixed(2).replace(/\.00$/,'');
+  document.getElementById('tPendiente').textContent = 'S/ ' + porCobrar.toFixed(2).replace(/\.00$/,'');
+  document.getElementById('mE').textContent = '✓ ' + entregados + ' entregados';
+  document.getElementById('mP').textContent = '⏳ ' + pendientes + ' pendientes';
+  document.getElementById('mF').textContent = '✕ ' + fallidos + ' fallidos';
+
+  var arr = pedidos.map(function(c, i){ c._orden = i; return c; });
+  if(filtroActual !== 'todos') arr = arr.filter(function(c){ return clasificar(c) === filtroActual; });
+
+  document.getElementById('vacio').style.display = arr.length ? 'none' : 'block';
+  var lista = document.getElementById('lista');
+
+  var h = '';
+  if(ordenDistrito){
+    // Agrupar por distrito (orden alfabético) para planear el recorrido
+    var grupos = {};
+    arr.forEach(function(c){
+      var d = (c.dist || 'Sin distrito').trim() || 'Sin distrito';
+      if(!grupos[d]) grupos[d] = [];
+      grupos[d].push(c);
+    });
+    lista.className = '';
+    Object.keys(grupos).sort().forEach(function(d){
+      h += '<div class="grupo-distrito"><i class="fa-solid fa-location-dot"></i> ' + escapeHtml(d) + ' (' + grupos[d].length + ')</div>';
+      h += '<div class="lista-grid">';
+      grupos[d].forEach(function(c){ h += tarjeta(c); });
+      h += '</div>';
+    });
+  } else {
+    lista.className = 'lista-grid';
+    arr.sort(function(a,b){ return a._orden - b._orden; });
+    arr.forEach(function(c){ h += tarjeta(c); });
+  }
+  lista.innerHTML = h;
+}
+
+function tarjeta(c){
+  var cls = clasificar(c);
+  var tel = normTel(c.cel);
+  var estadoTxt = cls === 'pendiente' ? '⏳ Pendiente'
+                : cls === 'entregado' ? '✓ ' + escapeHtml(String(c.estado || 'entregado').replace(/-/g, ' '))
+                : '✕ ' + escapeHtml(String(c.estado || 'fallido').replace(/-/g, ' '));
+  var mapaQuery = encodeURIComponent(((c.dir || '') + ' ' + (c.dist || '') + ' Lima Peru').trim());
+  var m = montoDe(c.cobrar);
+
+  var h = '<div class="pedido ' + cls + '">';
+  h += '<div class="ped-head"><span class="ped-nombre">' + escapeHtml(c.nombre || 'Cliente') + '</span>';
+  h += '<span class="ped-monto">' + (m ? 'S/ ' + m.toFixed(2).replace(/\.00$/,'') : '') + '</span></div>';
+  if(c.prod) h += '<div class="ped-prod"><i class="fa-solid fa-box"></i>' + escapeHtml(c.prod) + '</div>';
+  if(c.dir || c.dist) h += '<div class="ped-dir"><i class="fa-solid fa-location-dot"></i><span>' + escapeHtml(((c.dir || '') + (c.dist ? ' — ' + c.dist : '')).trim()) + '</span></div>';
+  h += '<div class="ped-foot">';
+  h += '<span class="estado-badge ' + cls + '">' + estadoTxt + '</span>';
+  h += '<div class="ped-btns">';
+  if(tel) h += '<a class="ped-btn wa" href="https://wa.me/51' + tel + '" target="_blank" rel="noopener" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>';
+  h += '<a class="ped-btn mapa" href="https://www.google.com/maps/search/?api=1&query=' + mapaQuery + '" target="_blank" rel="noopener" title="Mapa"><i class="fa-solid fa-map-location-dot"></i></a>';
+  h += '</div></div></div>';
+  return h;
+}
+
+// ===== Filtros y orden =====
+function setFiltro(f, el){
+  filtroActual = f;
+  document.querySelectorAll('.chip').forEach(function(c){ c.classList.remove('activo'); });
+  el.classList.add('activo');
+  render();
+}
+function toggleOrden(){
+  ordenDistrito = !ordenDistrito;
+  document.getElementById('ordenBtn').classList.toggle('activo', ordenDistrito);
+  render();
+}
+</script>
+</body>
+</html>
