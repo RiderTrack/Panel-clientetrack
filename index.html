@@ -983,15 +983,6 @@
 
             if(m.archivo){
                 // 🧩 Módulo integrado: se carga en su marco (aislado, con su propio CSS/JS)
-                var proto = window.location.protocol;
-                if(proto !== 'http:' && proto !== 'https:'){
-                    // Abierto desde el administrador de archivos: el marco no puede cargar hermanos
-                    mostrarPantallaModulo({
-                        icono: m.icono, nombre: m.nombre, estado: 'desarrollo', progreso: 100,
-                        desc: 'Este módulo está integrado y funciona en la app (APK) y en la web publicada (GitHub Pages). Abierto como archivo local, el navegador bloquea la carga — usa la app o la URL web.'
-                    });
-                    return;
-                }
                 document.getElementById('modulo-frame').src = m.archivo;
                 document.getElementById('iframe-view').classList.add('active');
             } else if(m.estado === 'listo' && m.vista){
