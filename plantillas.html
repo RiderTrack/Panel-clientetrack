@@ -62,6 +62,19 @@ body { background:var(--bg-color); color:var(--text-main); min-height:100vh; min
 .btn-new { padding:10px 20px; background:linear-gradient(135deg,var(--blue-track),var(--purple-alpha)); color:#fff; border:none; border-radius:8px; font-weight:600; font-size:0.85rem; cursor:pointer; display:flex; align-items:center; gap:6px; transition:var(--transition); }
 .btn-new:active { transform:scale(0.97); }
 
+/* Formato WhatsApp en vista previa */
+.wa-bold { font-weight: 700; }
+.wa-italic { font-style: italic; }
+.wa-strike { text-decoration: line-through; }
+.wa-code { font-family: 'Courier New', monospace; background: rgba(100,116,139,0.1); padding: 1px 4px; border-radius: 3px; font-size: 0.85em; }
+
+/* Formato WhatsApp en vista previa */
+.preview-content b, .tpl-preview b { font-weight: 700; color: var(--text-main); }
+.preview-content i, .tpl-preview i { font-style: italic; }
+.preview-content s, .tpl-preview s { text-decoration: line-through; }
+.preview-content code, .tpl-preview code { font-family: 'Courier New', monospace; background: rgba(100,116,139,0.1); padding: 1px 4px; border-radius: 3px; font-size: 0.85em; }
+.preview-content br { display: block; content: ''; margin-top: 2px; }
+
 /* Grid de plantillas */
 .grid { display:grid; grid-template-columns:1fr; gap:12px; }
 @media(min-width:640px){ .grid { grid-template-columns:1fr 1fr; } }
@@ -328,7 +341,7 @@ function render(){
     html += '<div class="tpl-card" onclick="editarPlantilla(\'' + p.id + '\')">';
     html += '<div class="tpl-cat">' + catIcon + ' ' + (p.categoria||'personalizado') + '</div>';
     html += '<div class="tpl-name">' + escapeHtml(p.nombre||'Sin nombre') + '</div>';
-    html += '<div class="tpl-preview">' + escapeHtml(preview.substring(0,120)) + (preview.length>120?'...':'') + '</div>';
+    html += '<div class="tpl-preview">' + formatearWhatsApp(preview.substring(0,120)) + (preview.length>120?'...':'') + '</div>';
     html += '<div class="tpl-actions">';
     html += '<button class="tpl-action-btn" onclick="event.stopPropagation();duplicarPlantilla(\'' + p.id + '\')" title="Duplicar"><i class="fa-solid fa-copy"></i></button>';
     html += '<button class="tpl-action-btn del" onclick="event.stopPropagation();eliminarPlantilla(\'' + p.id + '\')" title="Eliminar"><i class="fa-solid fa-trash"></i></button>';
@@ -417,7 +430,27 @@ function actualizarPreview(){
     .replace(/\{minutos_llegada\}/g, datosPrueba.minutos_llegada)
     .replace(/\{hora\}/g, datosPrueba.hora)
     .replace(/\{fecha\}/g, datosPrueba.fecha);
-  document.getElementById('previewContent').textContent = preview || 'Escribe algo para ver la vista previa...';
+  var html = formatearWhatsApp(preview);
+  document.getElementById('previewContent').innerHTML = html || 'Escribe algo para ver la vista previa...';
+}
+
+// Formatear texto WhatsApp a HTML
+function formatearWhatsApp(texto){
+  if(!texto) return '';
+  // Primero escapar HTML
+  var t = escapeHtml(texto);
+  // Reemplazar formato WhatsApp por HTML
+  // *negrita* → <b>negrita</b>
+  t = t.replace(/\*([^*\n]+)\*/g, '<b>$1</b>');
+  // _cursiva_ → <i>cursiva</i>
+  t = t.replace(/_([^_\n]+)_/g, '<i>$1</i>');
+  // ~tachado~ → <s>tachado</s>
+  t = t.replace(/~([^~\n]+)~/g, '<s>$1</s>');
+  // `código` → <code>código</code>
+  t = t.replace(/`([^`\n]+)`/g, '<code class="wa-code">$1</code>');
+  // Saltos de línea
+  t = t.replace(/\n/g, '<br>');
+  return t;
 }
 
 async function guardarPlantilla(){
