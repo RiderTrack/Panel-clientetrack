@@ -197,10 +197,11 @@ body { background:var(--bg-color); color:var(--text-main); min-height:100vh; min
       <div class="chips-bar" id="chipsBar">
         <span class="chip-var" onclick="insertarVar('{nombre}')">{nombre}</span>
         <span class="chip-var" onclick="insertarVar('{producto}')">{producto}</span>
-        <span class="chip-var" onclick="insertarVar('{monto}')">{monto}</span>
+        <span class="chip-var" onclick="insertarVar('{cobrar}')">{cobrar}</span>
         <span class="chip-var" onclick="insertarVar('{direccion}')">{direccion}</span>
         <span class="chip-var" onclick="insertarVar('{distrito}')">{distrito}</span>
         <span class="chip-var" onclick="insertarVar('{telefono}')">{telefono}</span>
+        <span class="chip-var" onclick="insertarVar('{minutos_llegada}')">{minutos}</span>
         <span class="chip-var" onclick="insertarVar('{hora}')">{hora}</span>
         <span class="chip-var" onclick="insertarVar('{fecha}')">{fecha}</span>
       </div>
@@ -245,9 +246,11 @@ var datosPrueba = {
   nombre: 'Luis Vega',
   producto: 'Masajeador con Infrarrojo',
   monto: '89.90',
+  cobrar: '89.90',
   direccion: 'Mz Z Lote 22, Urb Pro',
   distrito: 'San Martín de Porres',
   telefono: '981 480 520',
+  minutos_llegada: '15',
   hora: new Date().toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'}),
   fecha: new Date().toLocaleDateString('es-PE')
 };
@@ -312,9 +315,11 @@ function render(){
     var preview = (p.mensaje||'').replace(/\{nombre\}/g, datosPrueba.nombre)
       .replace(/\{producto\}/g, datosPrueba.producto)
       .replace(/\{monto\}/g, datosPrueba.monto)
+      .replace(/\{cobrar\}/g, datosPrueba.cobrar)
       .replace(/\{direccion\}/g, datosPrueba.direccion)
       .replace(/\{distrito\}/g, datosPrueba.distrito)
       .replace(/\{telefono\}/g, datosPrueba.telefono)
+      .replace(/\{minutos_llegada\}/g, datosPrueba.minutos_llegada)
       .replace(/\{hora\}/g, datosPrueba.hora)
       .replace(/\{fecha\}/g, datosPrueba.fecha);
 
@@ -405,9 +410,11 @@ function actualizarPreview(){
   var preview = msg.replace(/\{nombre\}/g, datosPrueba.nombre)
     .replace(/\{producto\}/g, datosPrueba.producto)
     .replace(/\{monto\}/g, datosPrueba.monto)
+    .replace(/\{cobrar\}/g, datosPrueba.cobrar)
     .replace(/\{direccion\}/g, datosPrueba.direccion)
     .replace(/\{distrito\}/g, datosPrueba.distrito)
     .replace(/\{telefono\}/g, datosPrueba.telefono)
+    .replace(/\{minutos_llegada\}/g, datosPrueba.minutos_llegada)
     .replace(/\{hora\}/g, datosPrueba.hora)
     .replace(/\{fecha\}/g, datosPrueba.fecha);
   document.getElementById('previewContent').textContent = preview || 'Escribe algo para ver la vista previa...';
@@ -459,9 +466,11 @@ function probarEnvio(){
   var preview = msg.replace(/\{nombre\}/g, datosPrueba.nombre)
     .replace(/\{producto\}/g, datosPrueba.producto)
     .replace(/\{monto\}/g, datosPrueba.monto)
+    .replace(/\{cobrar\}/g, datosPrueba.cobrar)
     .replace(/\{direccion\}/g, datosPrueba.direccion)
     .replace(/\{distrito\}/g, datosPrueba.distrito)
     .replace(/\{telefono\}/g, datosPrueba.telefono)
+    .replace(/\{minutos_llegada\}/g, datosPrueba.minutos_llegada)
     .replace(/\{hora\}/g, datosPrueba.hora)
     .replace(/\{fecha\}/g, datosPrueba.fecha);
   window.open('https://wa.me/51907565569?text=' + encodeURIComponent(preview), '_blank');
