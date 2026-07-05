@@ -289,6 +289,13 @@
         .emoji-bar.show { display: flex; }
         .emoji-bar button { background: none; border: none; font-size: 1.45rem; line-height: 1; padding: 5px; cursor: pointer; border-radius: 8px; }
         .emoji-bar button:active { background: var(--surface-solid); transform: scale(1.2); }
+        /* ===== Escudo anti-spam + eliminar + audio ===== */
+        .media-wrap { position: relative; display: inline-block; }
+        .img-blur { filter: blur(16px); }
+        .blur-hint { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,0.65); color: #fff; font-size: 0.68rem; font-weight: 700; padding: 6px 10px; border-radius: 10px; pointer-events: none; white-space: nowrap; }
+        .msg-del { position: absolute; top: -8px; right: -8px; background: var(--surface-solid); border: 1px solid var(--border); border-radius: 50%; width: 28px; height: 28px; font-size: 0.8rem; cursor: pointer; box-shadow: var(--shadow-soft); display: flex; align-items: center; justify-content: center; }
+        .msg-del:active { transform: scale(0.9); }
+        .bubble-audio { width: 220px; max-width: 60vw; height: 40px; }
         .bubble-meta svg { width: 12px; height: 12px; }
 
         /* Input Area */
@@ -706,6 +713,7 @@ function iniciarListener(){
       
       snapshot.forEach(function(doc){
         var m = doc.data();
+        m._id = doc.id;
         var tel = normTel(m.telefono) || 'desconocido';
         
         if(!conversaciones[tel]){
@@ -797,6 +805,7 @@ function renderLista(){
 function renderMensajes(telefono){
   var conv = conversaciones[telefono];
   if(!conv) return;
+  var esDesconocido = !conv.nombre || conv.nombre === 'Cliente';
   var cont = document.getElementById('chatBody');
   var mensajes = conv.mensajes.slice().sort(function(a,b){ return a.timestamp - b.timestamp; });
   
@@ -840,8 +849,19 @@ function renderMensajes(telefono){
       // Burbuja de imagen (patrón window['_adj_'+id] para el onclick)
       var adjId = String(m.timestamp) + '_' + (m.base64.length);
       window['_adj_' + adjId] = { base64: m.base64, mimetype: m.mimetype || 'image/jpeg', nombreArchivo: m.nombreArchivo || 'imagen.jpg' };
-      html += '<img class="bubble-img" src="data:' + (m.mimetype || 'image/jpeg') + ';base64,' + m.base64 + '" onclick="verImagen(\'' + adjId + '\')" alt="Imagen">';
+      var blurCls = (esEntrante && esDesconocido) ? ' img-blur' : '';
+      html += '<div class="media-wrap">';
+      html += '<img class="bubble-img' + blurCls + '" src="data:' + (m.mimetype || 'image/jpeg') + ';base64,' + m.base64 + '" onclick="revelarOVer(this,\'' + adjId + '\')" alt="Imagen">';
+      if(blurCls) html += '<span class="blur-hint">🛡️ Desconocido — toca para ver</span>';
+      if(esEntrante && m._id) html += '<button class="msg-del" onclick="eliminarMensaje(\'' + m._id + '\')" title="Eliminar">🗑️</button>';
+      html += '</div>';
       if(m.texto && m.texto !== '📷 Imagen') html += '<span class="bubble-text" style="margin-top:6px;">' + escapeHtml(m.texto) + '</span>';
+    } else if(m.tipoContenido === 'audio' && m.base64){
+      // Burbuja de nota de voz
+      html += '<div class="media-wrap">';
+      html += '<audio class="bubble-audio" controls preload="metadata" src="data:' + (m.mimetype || 'audio/ogg') + ';base64,' + m.base64 + '"></audio>';
+      if(esEntrante && m._id) html += '<button class="msg-del" onclick="eliminarMensaje(\'' + m._id + '\')" title="Eliminar">🗑️</button>';
+      html += '</div>';
     } else if(m.tipoContenido === 'documento' && m.base64){
       // Tarjeta de documento con descarga
       var adjId2 = String(m.timestamp) + '_' + (m.base64.length);
@@ -849,11 +869,13 @@ function renderMensajes(telefono){
       var ext = (m.nombreArchivo || '').split('.').pop().toLowerCase();
       var icono = ext === 'pdf' ? '📕' : (ext === 'xlsx' || ext === 'xls' || ext === 'csv' ? '📊' : (ext === 'docx' || ext === 'doc' ? '📘' : '📄'));
       var pesoKB = Math.round(m.base64.length * 0.75 / 1024);
-      html += '<div class="doc-card" onclick="descargarDoc(\'' + adjId2 + '\')">';
+      html += '<div class="media-wrap"><div class="doc-card" onclick="descargarDoc(\'' + adjId2 + '\')">';
       html += '<span class="doc-icon">' + icono + '</span>';
       html += '<div class="doc-info"><span class="doc-name">' + escapeHtml(m.nombreArchivo || 'Documento') + '</span>';
       html += '<span class="doc-meta">' + (ext ? ext.toUpperCase() + ' · ' : '') + pesoKB + ' KB</span></div>';
       html += '<span class="doc-dl">⬇️</span>';
+      html += '</div>';
+      if(esEntrante && m._id) html += '<button class="msg-del" onclick="eliminarMensaje(\'' + m._id + '\')" title="Eliminar">🗑️</button>';
       html += '</div>';
     } else {
       html += '<span class="bubble-text">' + escapeHtml(m.texto || '') + '</span>';
@@ -1049,6 +1071,24 @@ function descargarImagenActual(){
 function descargarDoc(adjId){
   var adj = window['_adj_' + adjId];
   if(adj) descargarBase64(adj.base64, adj.mimetype, adj.nombreArchivo);
+}
+// Escudo anti-spam: primer tap revela la imagen borrosa, segundo abre el lightbox
+function revelarOVer(el, adjId){
+  if(el.classList.contains('img-blur')){
+    el.classList.remove('img-blur');
+    var hint = el.parentElement.querySelector('.blur-hint');
+    if(hint) hint.remove();
+    return;
+  }
+  verImagen(adjId);
+}
+// Eliminar un mensaje (foto/doc/audio spam) directamente de Firestore
+async function eliminarMensaje(docId){
+  if(!confirm('¿Eliminar este archivo del chat? Esto libera espacio y no se puede deshacer.')) return;
+  try{
+    await db.collection('mensajes_clientes').doc(docId).delete();
+    mostrarAviso('Archivo eliminado ✓');
+  }catch(e){ mostrarAviso('No se pudo eliminar: ' + e.message); }
 }
 function descargarBase64(base64, mimetype, nombre){
   try{
