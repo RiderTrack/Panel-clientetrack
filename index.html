@@ -678,6 +678,7 @@
             .chat-area, .crm-sidebar { display: none; }
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 </head>
 <body>
 
@@ -1152,15 +1153,42 @@
             var clientes = [];
             if(snap.exists){ clientes = snap.data().clientes || []; }
             var snap2 = await dbDash.collection('clientes_registrados').get();
-            snap2.forEach(function(d){ var c = d.data(); if(!clientes.find(function(x){return x.cel === c.telefono})){ clientes.push({cel:c.telefono, nombre:c.nombre, prod:c.prod||'', cobrar:c.cobrar||'', dir:c.dir||'', dist:c.dist||''}); } });
+            var _nt = function(t){ t = String(t||'').replace(/\D/g,''); if(t.indexOf('51')===0 && t.length>9) t = t.slice(2); return t; };
+            snap2.forEach(function(d){ var c = d.data(); if(!clientes.find(function(x){return _nt(x.cel) === _nt(c.telefono)})){ clientes.push({cel:c.telefono, nombre:c.nombre, prod:c.prod||'', cobrar:c.cobrar||'', dir:c.dir||'', dist:c.dist||''}); } });
+            // Teléfonos uniformes en el Excel: 9 dígitos sin prefijo
+            clientes = clientes.map(function(c){ c.cel = _nt(c.cel); return c; });
             if(clientes.length === 0){ alert('No hay clientes para exportar'); return; }
-            var csv = 'Nombre,Telefono,Producto,Monto,Direccion,Distrito\n';
-            clientes.forEach(function(c){ csv += '"' + (c.nombre||'') + '","' + (c.cel||'') + '","' + (c.prod||'') + '","' + (c.cobrar||'') + '","' + (c.dir||'') + '","' + (c.dist||'') + '"\n'; });
-            var blob = new Blob([csv], {type:'text/csv'});
-            var a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = 'clientes_' + new Date().toLocaleDateString('es-PE') + '.csv';
-            a.click();
+
+            // ===== XLSX con estilos (xlsx-js-style) =====
+            var hoy = new Date().toLocaleDateString('es-PE', {weekday:'long', day:'2-digit', month:'long', year:'numeric'});
+            var estiloTitulo = { font:{bold:true, sz:15, color:{rgb:'FFFFFF'}}, fill:{fgColor:{rgb:'0052FF'}}, alignment:{horizontal:'center', vertical:'center'} };
+            var estiloHeader = { font:{bold:true, sz:11, color:{rgb:'FFFFFF'}}, fill:{fgColor:{rgb:'1E293B'}}, alignment:{horizontal:'center'}, border:{bottom:{style:'thin', color:{rgb:'CBD5E1'}}} };
+            var estiloCelda  = { font:{sz:10}, border:{bottom:{style:'thin', color:{rgb:'E2E8F0'}}}, alignment:{vertical:'center'} };
+            var estiloMonto  = { font:{sz:10, bold:true, color:{rgb:'059669'}}, border:{bottom:{style:'thin', color:{rgb:'E2E8F0'}}}, alignment:{horizontal:'center', vertical:'center'} };
+            var estiloPar    = { font:{sz:10}, fill:{fgColor:{rgb:'F8FAFC'}}, border:{bottom:{style:'thin', color:{rgb:'E2E8F0'}}} };
+
+            var filas = [];
+            filas.push([{v:'TRACKVERSE — CLIENTES · ' + hoy, s:estiloTitulo}, {v:'',s:estiloTitulo}, {v:'',s:estiloTitulo}, {v:'',s:estiloTitulo}, {v:'',s:estiloTitulo}, {v:'',s:estiloTitulo}]);
+            filas.push(['Nombre','Teléfono','Producto','Monto S/','Dirección','Distrito'].map(function(t){ return {v:t, s:estiloHeader}; }));
+            clientes.forEach(function(c, i){
+              var base = (i % 2 === 1) ? estiloPar : estiloCelda;
+              filas.push([
+                {v: c.nombre || '', s: base},
+                {v: String(c.cel || ''), s: base},
+                {v: c.prod || '', s: base},
+                {v: String(c.cobrar || '').replace(/^S\/\s*/i,''), s: estiloMonto},
+                {v: c.dir || '', s: base},
+                {v: c.dist || '', s: base}
+              ]);
+            });
+
+            var ws = XLSX.utils.aoa_to_sheet(filas);
+            ws['!cols'] = [{wch:28},{wch:14},{wch:34},{wch:10},{wch:40},{wch:18}];
+            ws['!rows'] = [{hpt:26},{hpt:18}];
+            ws['!merges'] = [{ s:{r:0,c:0}, e:{r:0,c:5} }];
+            var wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Clientes');
+            XLSX.writeFile(wb, 'TrackVerse_Clientes_' + new Date().toISOString().slice(0,10) + '.xlsx');
           }catch(e){ alert('Error: ' + e.message); }
         }
 
