@@ -261,6 +261,29 @@
         .location-preview .loc-coords { font-size: 0.7rem; opacity: 0.75; font-family: monospace; }
         .location-maps-btn { display: flex; align-items: center; justify-content: center; gap: 6px; background: #10B981; color: #fff; border: none; border-radius: 10px; padding: 10px; font-weight: 700; font-size: 0.8rem; text-decoration: none; cursor: pointer; }
         .location-maps-btn:active { transform: scale(0.97); }
+
+        /* ===== Burbuja de imagen ===== */
+        .bubble-img { max-width: 230px; max-height: 280px; border-radius: 12px; display: block; cursor: pointer; object-fit: cover; }
+        /* ===== Tarjeta de documento ===== */
+        .doc-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.15); border-radius: 12px; padding: 12px; min-width: 200px; cursor: pointer; }
+        .bubble-wrapper.client .doc-card { background: rgba(0,0,0,0.06); }
+        .doc-card:active { transform: scale(0.98); }
+        .doc-icon { font-size: 1.8rem; line-height: 1; }
+        .doc-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+        .doc-name { font-weight: 700; font-size: 0.82rem; word-break: break-all; }
+        .doc-meta { font-size: 0.68rem; opacity: 0.75; font-family: monospace; }
+        .doc-dl { font-size: 1.1rem; }
+        /* ===== Lightbox de imagen ===== */
+        .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 12000; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 14px; padding: 20px; }
+        .lightbox.show { display: flex; }
+        .lightbox img { max-width: 100%; max-height: 80vh; max-height: 80dvh; border-radius: 12px; }
+        .lightbox .lb-actions { display: flex; gap: 10px; }
+        .lightbox button { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); color: #fff; border-radius: 10px; padding: 10px 18px; font-weight: 700; font-size: 0.85rem; cursor: pointer; }
+        /* ===== Barra de subida ===== */
+        .upload-bar { display: none; align-items: center; gap: 10px; font-size: 0.78rem; color: var(--text-muted); padding: 4px 2px; }
+        .upload-bar.show { display: flex; }
+        .upload-bar .spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--primary, #0A58CA); border-radius: 50%; animation: girar 0.8s linear infinite; }
+        @keyframes girar { to { transform: rotate(360deg); } }
         .bubble-meta svg { width: 12px; height: 12px; }
 
         /* Input Area */
@@ -474,6 +497,7 @@
             </div>
             <!-- Chat Footer (Input) -->
             <footer class="chat-footer">
+                <div class="upload-bar" id="uploadBar"><div class="spinner"></div><span id="uploadTxt">Enviando archivo...</span></div>
                 <div class="quick-replies">
                     <button class="qr-btn" onclick="enviarRapido('Ya llegué 📍')">Ya llegué</button>
                     <button class="qr-btn" onclick="enviarRapido('Salgo en 2 min 🚀')">Salgo en 2 min</button>
@@ -481,9 +505,10 @@
                 </div>
                 <div class="input-row">
                     <div class="action-btns">
+                        <button title="Adjuntar archivo" onclick="document.getElementById('fileInput').click()"><svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button>
+                        <input type="file" id="fileInput" accept="image/*,.pdf,.xlsx,.xls,.csv,.docx,.doc" style="display:none" onchange="manejarArchivo(this)">
                         <button title="Ubicación"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></button>
                         <button title="Código QR"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg></button>
-                        <button title="Sugerencia IA"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg></button>
                     </div>
                     <input type="text" class="input-field" id="msgInput" placeholder="Escribe un mensaje..." onkeydown="if(event.key==='Enter')enviarMensaje()">
                     <button class="send-btn" onclick="enviarMensaje()" id="sendBtn">
@@ -492,6 +517,15 @@
                 </div>
             </footer>
         </section>
+
+        <!-- Lightbox visor de imágenes -->
+        <div class="lightbox" id="lightbox" onclick="if(event.target===this)cerrarLightbox()">
+            <img id="lightboxImg" src="" alt="Imagen">
+            <div class="lb-actions">
+                <button onclick="descargarImagenActual()">⬇️ Descargar</button>
+                <button onclick="cerrarLightbox()">✕ Cerrar</button>
+            </div>
+        </div>
 
     </div>
 
@@ -795,6 +829,25 @@ function renderMensajes(telefono){
       html += '</div></div>';
       html += '<a class="location-maps-btn" href="' + mapsUrl + '" target="_blank" rel="noopener">🗺️ Abrir en Maps</a>';
       html += '</div>';
+    } else if(m.tipoContenido === 'imagen' && m.base64){
+      // Burbuja de imagen (patrón window['_adj_'+id] para el onclick)
+      var adjId = String(m.timestamp) + '_' + (m.base64.length);
+      window['_adj_' + adjId] = { base64: m.base64, mimetype: m.mimetype || 'image/jpeg', nombreArchivo: m.nombreArchivo || 'imagen.jpg' };
+      html += '<img class="bubble-img" src="data:' + (m.mimetype || 'image/jpeg') + ';base64,' + m.base64 + '" onclick="verImagen(\'' + adjId + '\')" alt="Imagen">';
+      if(m.texto && m.texto !== '📷 Imagen') html += '<span class="bubble-text" style="margin-top:6px;">' + escapeHtml(m.texto) + '</span>';
+    } else if(m.tipoContenido === 'documento' && m.base64){
+      // Tarjeta de documento con descarga
+      var adjId2 = String(m.timestamp) + '_' + (m.base64.length);
+      window['_adj_' + adjId2] = { base64: m.base64, mimetype: m.mimetype || 'application/octet-stream', nombreArchivo: m.nombreArchivo || 'documento' };
+      var ext = (m.nombreArchivo || '').split('.').pop().toLowerCase();
+      var icono = ext === 'pdf' ? '📕' : (ext === 'xlsx' || ext === 'xls' || ext === 'csv' ? '📊' : (ext === 'docx' || ext === 'doc' ? '📘' : '📄'));
+      var pesoKB = Math.round(m.base64.length * 0.75 / 1024);
+      html += '<div class="doc-card" onclick="descargarDoc(\'' + adjId2 + '\')">';
+      html += '<span class="doc-icon">' + icono + '</span>';
+      html += '<div class="doc-info"><span class="doc-name">' + escapeHtml(m.nombreArchivo || 'Documento') + '</span>';
+      html += '<span class="doc-meta">' + (ext ? ext.toUpperCase() + ' · ' : '') + pesoKB + ' KB</span></div>';
+      html += '<span class="doc-dl">⬇️</span>';
+      html += '</div>';
     } else {
       html += '<span class="bubble-text">' + escapeHtml(m.texto || '') + '</span>';
     }
@@ -808,6 +861,149 @@ function renderMensajes(telefono){
 }
 
 // ===== ENVIAR MENSAJE =====
+// ===== ADJUNTOS: imágenes y documentos (base64 en Firestore, sin Storage) =====
+var LIMITE_DOC_KB = 700; // límite para documentos (Firestore max 1MB/doc)
+
+function manejarArchivo(input){
+  var file = input.files && input.files[0];
+  input.value = ''; // permitir re-seleccionar el mismo archivo
+  if(!file || !telefonoActual) return;
+
+  if(file.type.indexOf('image/') === 0){
+    mostrarSubida('Comprimiendo imagen...');
+    comprimirImagen(file, function(base64, mime){
+      if(!base64){ ocultarSubida(); mostrarAviso('No se pudo procesar la imagen'); return; }
+      enviarAdjunto('imagen', base64, mime, file.name || 'imagen.jpg', '📷 Imagen');
+    });
+  } else {
+    if(file.size > LIMITE_DOC_KB * 1024){
+      mostrarAviso('Archivo muy pesado (' + Math.round(file.size/1024) + ' KB). Máximo ' + LIMITE_DOC_KB + ' KB — comprímelo e intenta de nuevo.');
+      return;
+    }
+    mostrarSubida('Leyendo documento...');
+    var reader = new FileReader();
+    reader.onload = function(){
+      var base64 = String(reader.result).split(',')[1];
+      enviarAdjunto('documento', base64, file.type || 'application/octet-stream', file.name || 'documento', '📄 ' + (file.name || 'Documento'));
+    };
+    reader.onerror = function(){ ocultarSubida(); mostrarAviso('No se pudo leer el archivo'); };
+    reader.readAsDataURL(file);
+  }
+}
+
+function comprimirImagen(file, cb){
+  var img = new Image();
+  var url = URL.createObjectURL(file);
+  img.onload = function(){
+    try{
+      var MAX = 1280;
+      var w = img.width, h = img.height;
+      if(w > MAX || h > MAX){
+        if(w > h){ h = Math.round(h * MAX / w); w = MAX; }
+        else { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      var dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+      URL.revokeObjectURL(url);
+      cb(dataUrl.split(',')[1], 'image/jpeg');
+    }catch(e){ URL.revokeObjectURL(url); cb(null); }
+  };
+  img.onerror = function(){ URL.revokeObjectURL(url); cb(null); };
+  img.src = url;
+}
+
+async function enviarAdjunto(tipoContenido, base64, mimetype, nombreArchivo, textoPreview){
+  mostrarSubida('Enviando ' + (tipoContenido === 'imagen' ? 'imagen' : 'documento') + '...');
+  try{
+    var conv = conversaciones[telefonoActual];
+    await db.collection('respuestas_manuales').add({
+      telefono: telefonoActual,
+      nombre: conv ? conv.nombre : 'Cliente',
+      texto: textoPreview,
+      tipoContenido: tipoContenido,
+      base64: base64,
+      mimetype: mimetype,
+      nombreArchivo: nombreArchivo,
+      enviado: false,
+      timestamp: Date.now(),
+      creadoPor: 'clienteTrack',
+      jidOriginal: conv ? conv.jidOriginal : '',
+      uid: UID_BOT
+    });
+    if(!conversaciones[telefonoActual]){
+      conversaciones[telefonoActual] = { telefono:telefonoActual, nombre:'Cliente', mensajes:[], noLeidos:0, ultimoTimestamp:Date.now() };
+    }
+    conversaciones[telefonoActual].mensajes.push({
+      telefono:telefonoActual, texto:textoPreview, tipoContenido:tipoContenido,
+      base64:base64, mimetype:mimetype, nombreArchivo:nombreArchivo,
+      tipo:'saliente', origen:'rudy', timestamp:Date.now()
+    });
+    conversaciones[telefonoActual].ultimoTimestamp = Date.now();
+    conversaciones[telefonoActual].ultimoMensaje = textoPreview;
+    conversaciones[telefonoActual].ultimoOrigen = 'rudy';
+    renderMensajes(telefonoActual);
+    renderLista();
+  }catch(err){
+    mostrarAviso('Error al enviar: ' + err.message);
+  }finally{
+    ocultarSubida();
+  }
+}
+
+function mostrarSubida(txt){
+  var b = document.getElementById('uploadBar');
+  var t = document.getElementById('uploadTxt');
+  if(t) t.textContent = txt;
+  if(b) b.classList.add('show');
+}
+function ocultarSubida(){
+  var b = document.getElementById('uploadBar');
+  if(b) b.classList.remove('show');
+}
+function mostrarAviso(msg){
+  // aviso simple no bloqueante (sin alert nativo)
+  var t = document.getElementById('uploadTxt');
+  var b = document.getElementById('uploadBar');
+  if(t && b){ t.textContent = '⚠️ ' + msg; b.classList.add('show'); setTimeout(ocultarSubida, 4000); }
+}
+
+// ===== LIGHTBOX =====
+var _lightboxActual = null;
+function verImagen(adjId){
+  var adj = window['_adj_' + adjId];
+  if(!adj) return;
+  _lightboxActual = adj;
+  document.getElementById('lightboxImg').src = 'data:' + adj.mimetype + ';base64,' + adj.base64;
+  document.getElementById('lightbox').classList.add('show');
+}
+function cerrarLightbox(){
+  document.getElementById('lightbox').classList.remove('show');
+  document.getElementById('lightboxImg').src = '';
+  _lightboxActual = null;
+}
+function descargarImagenActual(){
+  if(_lightboxActual) descargarBase64(_lightboxActual.base64, _lightboxActual.mimetype, _lightboxActual.nombreArchivo);
+}
+function descargarDoc(adjId){
+  var adj = window['_adj_' + adjId];
+  if(adj) descargarBase64(adj.base64, adj.mimetype, adj.nombreArchivo);
+}
+function descargarBase64(base64, mimetype, nombre){
+  try{
+    var bin = atob(base64);
+    var bytes = new Uint8Array(bin.length);
+    for(var i=0; i<bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    var blob = new Blob([bytes], {type: mimetype});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = nombre || 'archivo';
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+  }catch(e){ mostrarAviso('No se pudo descargar: ' + e.message); }
+}
+
 async function enviarMensaje(){
   var inp = document.getElementById('msgInput');
   if(!inp) return;
