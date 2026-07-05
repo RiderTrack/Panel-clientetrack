@@ -284,6 +284,11 @@
         .upload-bar.show { display: flex; }
         .upload-bar .spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--primary, #0A58CA); border-radius: 50%; animation: girar 0.8s linear infinite; }
         @keyframes girar { to { transform: rotate(360deg); } }
+        /* ===== Barra de emojis ===== */
+        .emoji-bar { display: none; flex-wrap: wrap; gap: 4px; padding: 6px 2px; max-height: 128px; overflow-y: auto; }
+        .emoji-bar.show { display: flex; }
+        .emoji-bar button { background: none; border: none; font-size: 1.45rem; line-height: 1; padding: 5px; cursor: pointer; border-radius: 8px; }
+        .emoji-bar button:active { background: var(--surface-solid); transform: scale(1.2); }
         .bubble-meta svg { width: 12px; height: 12px; }
 
         /* Input Area */
@@ -498,6 +503,7 @@
             <!-- Chat Footer (Input) -->
             <footer class="chat-footer">
                 <div class="upload-bar" id="uploadBar"><div class="spinner"></div><span id="uploadTxt">Enviando archivo...</span></div>
+                <div class="emoji-bar" id="emojiBar"></div>
                 <div class="quick-replies">
                     <button class="qr-btn" onclick="enviarRapido('Ya llegué 📍')">Ya llegué</button>
                     <button class="qr-btn" onclick="enviarRapido('Salgo en 2 min 🚀')">Salgo en 2 min</button>
@@ -507,8 +513,9 @@
                     <div class="action-btns">
                         <button title="Adjuntar archivo" onclick="document.getElementById('fileInput').click()"><svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button>
                         <input type="file" id="fileInput" accept="image/*,.pdf,.xlsx,.xls,.csv,.docx,.doc" style="display:none" onchange="manejarArchivo(this)">
-                        <button title="Ubicación"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></button>
-                        <button title="Código QR"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg></button>
+                        <button title="Ubicación" onclick="enviarUbicacion()"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></button>
+                        <button title="Enviar QR de Yape" onclick="enviarYapeQR()"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg></button>
+                        <button title="Emojis" onclick="toggleEmojis()">😊</button>
                     </div>
                     <input type="text" class="input-field" id="msgInput" placeholder="Escribe un mensaje..." onkeydown="if(event.key==='Enter')enviarMensaje()">
                     <button class="send-btn" onclick="enviarMensaje()" id="sendBtn">
@@ -861,6 +868,59 @@ function renderMensajes(telefono){
 }
 
 // ===== ENVIAR MENSAJE =====
+// ===== ENVIAR QR DE YAPE (el bot lo saca de ruta_activa y lo manda) =====
+async function enviarYapeQR(){
+  if(!telefonoActual) return;
+  mostrarSubida('Enviando QR de Yape...');
+  try{
+    var conv = conversaciones[telefonoActual];
+    await db.collection('respuestas_manuales').add({
+      telefono: telefonoActual,
+      nombre: conv ? conv.nombre : 'Cliente',
+      texto: '📲 QR de Yape',
+      tipoContenido: 'yape_qr',
+      enviado: false,
+      timestamp: Date.now(),
+      creadoPor: 'clienteTrack',
+      jidOriginal: conv ? conv.jidOriginal : '',
+      uid: UID_BOT
+    });
+    if(conversaciones[telefonoActual]){
+      conversaciones[telefonoActual].mensajes.push({
+        telefono:telefonoActual, texto:'📲 QR de Yape enviado', tipo:'saliente', origen:'rudy', timestamp:Date.now()
+      });
+      conversaciones[telefonoActual].ultimoTimestamp = Date.now();
+      conversaciones[telefonoActual].ultimoMensaje = '📲 QR de Yape';
+      renderMensajes(telefonoActual);
+    }
+  }catch(err){ mostrarAviso('Error: ' + err.message); }
+  finally{ ocultarSubida(); }
+}
+
+// ===== BARRA DE EMOJIS =====
+var EMOJIS = ['😊','😂','👍','🙏','❤️','🎉','✅','🔥','👌','😅','🤝','💪','🚀','📍','📦','💰','⏰','🙌','😉','🥳','😎','🤗','☕','🍀','⚡','🎁','📸','✍️','👏','🫡'];
+var _emojisRendered = false;
+function toggleEmojis(){
+  var bar = document.getElementById('emojiBar');
+  if(!bar) return;
+  if(!_emojisRendered){
+    var h = '';
+    EMOJIS.forEach(function(e){ h += '<button type="button" onclick="insertarEmoji(\'' + e + '\')">' + e + '</button>'; });
+    bar.innerHTML = h;
+    _emojisRendered = true;
+  }
+  bar.classList.toggle('show');
+}
+function insertarEmoji(e){
+  var inp = document.getElementById('msgInput');
+  if(!inp) return;
+  var start = inp.selectionStart || inp.value.length;
+  inp.value = inp.value.slice(0, start) + e + inp.value.slice(start);
+  inp.focus();
+  var pos = start + e.length;
+  try{ inp.setSelectionRange(pos, pos); }catch(_e){}
+}
+
 // ===== ADJUNTOS: imágenes y documentos (base64 en Firestore, sin Storage) =====
 var LIMITE_DOC_KB = 700; // límite para documentos (Firestore max 1MB/doc)
 
