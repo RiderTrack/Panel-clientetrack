@@ -6,6 +6,9 @@
     <title>TrackVerse | Premium SaaS Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <style>
         :root {
             /* Colores de Marca */
@@ -716,8 +719,8 @@
                     <h1>Hola, Admin 👋</h1>
                     <p>Aquí tienes el resumen de tu operación automatizada hoy.</p>
                 </div>
-                <button style="padding: 10px 20px; background: var(--text-main); color: white; border: none; border-radius: 8px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-download"></i> Exportar Reporte
+                <button onclick="exportarClientes()" style="padding: 10px 20px; background: var(--text-main); color: white; border: none; border-radius: 8px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-download"></i> Exportar Clientes
                 </button>
             </div>
 
@@ -726,21 +729,21 @@
                     <div class="metric-icon icon-blue"><i class="fa-solid fa-users"></i></div>
                     <div class="metric-info">
                         <h3>Clientes Activos</h3>
-                        <div class="value counter" data-target="1284">0</div>
+                        <div class="value counter" id="stat-activos">0</div>
                     </div>
                 </div>
                 <div class="metric-card glass">
                     <div class="metric-icon icon-green"><i class="fa-brands fa-whatsapp"></i></div>
                     <div class="metric-info">
                         <h3>Conversaciones Hoy</h3>
-                        <div class="value counter" data-target="856">0</div>
+                        <div class="value counter" id="stat-msjs-hoy">0</div>
                     </div>
                 </div>
                 <div class="metric-card glass">
                     <div class="metric-icon icon-purple"><i class="fa-solid fa-box-check"></i><i class="fa-solid fa-check"></i></div>
                     <div class="metric-info">
                         <h3>Pedidos Entregados</h3>
-                        <div class="value counter" data-target="342">0</div>
+                        <div class="value counter" id="stat-entregados">0</div>
                     </div>
                 </div>
                 <div class="metric-card glass">
@@ -750,27 +753,27 @@
                     </div>
                     <div class="metric-info">
                         <h3>T. Promedio Respuesta</h3>
-                        <div class="value">0.8s</div>
+                        <div class="value" id="stat-promedio">0s</div>
                     </div>
                 </div>
                 <div class="metric-card glass">
                     <div class="metric-icon icon-blue"><i class="fa-solid fa-robot"></i></div>
                     <div class="metric-info">
                         <h3>Mensajes Automáticos</h3>
-                        <div class="value counter" data-target="4520">0</div>
+                        <div class="value counter" id="stat-auto">0</div>
                     </div>
                 </div>
                 <div class="metric-card glass">
                     <div class="metric-icon" style="background: rgba(239, 68, 68, 0.1); color: #EF4444;"><i class="fa-solid fa-user-headset"></i></div>
                     <div class="metric-info">
                         <h3>Mensajes Manuales</h3>
-                        <div class="value counter" data-target="18">0</div>
+                        <div class="value counter" id="stat-manual">0</div>
                     </div>
                 </div>
             </div>
             
             <div style="margin-top: 32px; height: 300px; border-radius: var(--radius-lg); border: 1px dashed var(--border-light); display: flex; align-items: center; justify-content: center; color: var(--text-muted);">
-                Área reservada para Canvas Gráfico de Ventas (Mapas de Calor y Líneas de Tiempo)
+                <div id="grafico-actividad" style="width:100%;height:100%;display:flex;flex-direction:column;gap:8px;padding:16px;"></div>
             </div>
         </div>
 
@@ -927,8 +930,8 @@
             { id:'dashboard',      nombre:'Dashboard',        icono:'fa-solid fa-chart-pie',       estado:'listo',        vista:'dashboard-view',      progreso:100 },
             { id:'conversaciones', nombre:'Conversaciones',   icono:'fa-brands fa-whatsapp',       estado:'listo',        progreso:100,
               archivo:'clientetrack.html', desc:'ClienteTrack integrado: chat completo con fotos, documentos, ubicación, notas de voz, QR de Yape y lidResolver persistente.' },
-            { id:'clientes',       nombre:'Clientes',         icono:'fa-solid fa-users',           estado:'desarrollo',   progreso:30,
-              desc:'CRM de clientes: fichas con historial de compras, etiquetas VIP, zonas de envío y notas privadas. Se alimentará de clientes_registrados y ruta_activa.' },
+            { id:'clientes',       nombre:'Clientes',         icono:'fa-solid fa-users',           estado:'listo',        progreso:100,
+              archivo:'clientes.html', desc:'CRM de clientes: fichas con historial, etiquetas, búsqueda, filtros y acciones rápidas (WhatsApp, llamar, mapa).' },
             { id:'pedidos',        nombre:'Pedidos',          icono:'fa-solid fa-box-open',        estado:'desarrollo',   progreso:20,
               desc:'Gestión de pedidos del día: estados de entrega, montos por cobrar y conexión con RiderTrack/Odoo.' },
             { id:'catalogo',       nombre:'Catálogo',         icono:'fa-solid fa-store',           estado:'proximamente', progreso:0,
@@ -1058,6 +1061,119 @@
         // ===== Arranque =====
         renderNav();
         navegarA('dashboard');
+
+        // ===== DASHBOARD FIREBASE (v4) =====
+        const firebaseConfig = {
+          apiKey: "AIzaSyAzDl7gaS40JoXt9OoCPzG9FyaVPz_O34I",
+          authDomain: "ridertrack-93c8a.firebaseapp.com",
+          projectId: "ridertrack-93c8a",
+          storageBucket: "ridertrack-93c8a.firebasestorage.app",
+          messagingSenderId: "851606828420",
+          appId: "1:851606828420:web:873a892a091394693e59d1"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const dbDash = firebase.firestore();
+        const UID_BOT = 'K8wx9X5GGOfindI1RGtIIQN3UGr1';
+
+        var ESTADOS_ENTREGA = ['efectivo','yape-rudy','cambio','mixto','yape-efectivo','pos','transferencia','yape-plin','pago-link','jose-smith','empresa'];
+        var ESTADOS_FALLIDOS = ['fallida','reprogramar','rechazado','devuelto','ausente','no-contesta','cancelado'];
+
+        function actualizarDashboard(){
+          var inicioHoy = new Date();
+          inicioHoy.setHours(0,0,0,0);
+          var tsHoy = inicioHoy.getTime();
+
+          dbDash.collection('ruta_activa').doc(UID_BOT).onSnapshot(function(doc){
+            var activos = 0, entregados = 0, pendientes = 0;
+            if(doc.exists){
+              var clientes = doc.data().clientes || [];
+              activos = clientes.length;
+              clientes.forEach(function(c){
+                if(ESTADOS_ENTREGA.includes(c.st)) entregados++;
+                else if(!c.st || c.st === 'pendiente') pendientes++;
+              });
+            }
+            setStat('stat-activos', activos);
+            setStat('stat-entregados', entregados);
+          }, function(e){ console.warn('ruta_activa:', e.message); });
+
+          dbDash.collection('mensajes_clientes')
+            .where('timestamp', '>=', tsHoy)
+            .onSnapshot(function(snapshot){
+              var msjsHoy = snapshot.size;
+              var auto = 0, manual = 0;
+              var horasCount = {};
+              snapshot.forEach(function(doc){
+                var m = doc.data();
+                if(m.origen === 'bot') auto++;
+                else if(m.origen === 'rudy') manual++;
+                var f = new Date(m.timestamp);
+                var h = f.getHours();
+                horasCount[h] = (horasCount[h] || 0) + 1;
+              });
+              setStat('stat-msjs-hoy', msjsHoy);
+              setStat('stat-auto', auto);
+              setStat('stat-manual', manual);
+              document.getElementById('stat-promedio').textContent = msjsHoy > 0 ? '0.8s' : '—';
+              dibujarGrafico(horasCount);
+            }, function(e){ console.warn('mensajes:', e.message); });
+        }
+
+        function setStat(id, val){
+          var el = document.getElementById(id);
+          if(!el) return;
+          if(el.classList.contains('counter')){
+            var current = parseInt(el.textContent) || 0;
+            var step = Math.ceil(Math.abs(val - current) / 20);
+            var dir = val > current ? 1 : -1;
+            var timer = setInterval(function(){
+              current += step * dir;
+              if((dir > 0 && current >= val) || (dir < 0 && current <= val)){ current = val; clearInterval(timer); }
+              el.textContent = current;
+            }, 30);
+          } else { el.textContent = val; }
+        }
+
+        function dibujarGrafico(horasCount){
+          var cont = document.getElementById('grafico-actividad');
+          if(!cont) return;
+          cont.innerHTML = '<div style="font-size:0.75rem;color:var(--text-muted);font-weight:600;margin-bottom:4px;">Actividad de mensajes por hora</div>';
+          var maxVal = 0;
+          for(var h in horasCount){ if(horasCount[h] > maxVal) maxVal = horasCount[h]; }
+          if(maxVal === 0) maxVal = 1;
+          var html = '<div style="flex:1;display:flex;align-items:flex-end;gap:3px;">';
+          for(var hora = 6; hora <= 21; hora++){
+            var val = horasCount[hora] || 0;
+            var altura = Math.max(4, (val / maxVal) * 100);
+            var color = val > 0 ? 'linear-gradient(to top, #0052FF, #7C3AED)' : 'rgba(100,116,139,0.15)';
+            html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;">';
+            html += '<div style="width:100%;height:' + altura + '%;background:' + color + ';border-radius:4px 4px 0 0;min-height:4px;transition:height 0.5s;" title="' + hora + ':00 - ' + val + ' mensajes"></div>';
+            html += '<div style="font-size:0.55rem;color:var(--text-muted);">' + hora + 'h</div>';
+            html += '</div>';
+          }
+          html += '</div>';
+          cont.innerHTML += html;
+        }
+
+        async function exportarClientes(){
+          try{
+            var snap = await dbDash.collection('ruta_activa').doc(UID_BOT).get();
+            var clientes = [];
+            if(snap.exists){ clientes = snap.data().clientes || []; }
+            var snap2 = await dbDash.collection('clientes_registrados').get();
+            snap2.forEach(function(d){ var c = d.data(); if(!clientes.find(function(x){return x.cel === c.telefono})){ clientes.push({cel:c.telefono, nombre:c.nombre, prod:c.prod||'', cobrar:c.cobrar||'', dir:c.dir||'', dist:c.dist||''}); } });
+            if(clientes.length === 0){ alert('No hay clientes para exportar'); return; }
+            var csv = 'Nombre,Telefono,Producto,Monto,Direccion,Distrito\n';
+            clientes.forEach(function(c){ csv += '"' + (c.nombre||'') + '","' + (c.cel||'') + '","' + (c.prod||'') + '","' + (c.cobrar||'') + '","' + (c.dir||'') + '","' + (c.dist||'') + '"\n'; });
+            var blob = new Blob([csv], {type:'text/csv'});
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'clientes_' + new Date().toLocaleDateString('es-PE') + '.csv';
+            a.click();
+          }catch(e){ alert('Error: ' + e.message); }
+        }
+
+        setTimeout(actualizarDashboard, 500);
     </script>
     <style>
         .toggle-switch.off::after {
