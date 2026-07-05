@@ -26,7 +26,6 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      # CLAVE: crear www/ y copiar el index.html ahí (webDir de Capacitor)
       - name: Prepare Web Assets
         run: |
           mkdir -p www
@@ -34,6 +33,13 @@ jobs:
 
       - name: Add Android Platform
         run: npx cap add android
+
+      # CLAVE: permisos para geolocalizacion y microfono (audios)
+      - name: Add Android Permissions
+        run: |
+          sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />|' android/app/src/main/AndroidManifest.xml
+          echo "=== Permisos en el manifest ==="
+          grep "uses-permission" android/app/src/main/AndroidManifest.xml
 
       - name: Sync Web Assets
         run: npx cap sync android
