@@ -242,6 +242,14 @@ body { background:var(--bg-color); color:var(--text-main); min-height:100vh; min
           <option value="rechazado">Pedido Rechazado</option>
           <option value="cancelado">Pedido Cancelado</option>
           <option value="noContesta">No Contesta</option>
+          <option value="fallida_suave">Fallida (tono suave)</option>
+          <option value="fallida_firme">Fallida (tono firme)</option>
+          <option value="fallida_disculpa">Fallida (con disculpa)</option>
+          <option value="fallida_reprog_directa">Fallida + reprogramación directa</option>
+          <option value="reprogramar_con_fecha">Reprogramar con fecha</option>
+        </optgroup>
+        <optgroup label="🕐 Otros">
+          <option value="cambioHorario">Cambio de horario (cliente pide otra hora)</option>
         </optgroup>
       </select>
       <p style="font-size:0.68rem;color:var(--muted);margin-top:6px;">Si eliminas o desconectas la plantilla, el bot vuelve automáticamente a su mensaje original de mensajes.js — imposible romperlo.</p>
