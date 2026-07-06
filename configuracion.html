@@ -80,6 +80,7 @@ body { background:var(--bg); color:var(--text); min-height:100vh; min-height:100
 .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--text); color:#fff; padding:12px 24px; border-radius:8px; font-size:0.85rem; font-weight:600; z-index:9999; opacity:0; transition:opacity 0.3s; pointer-events:none; }
 .toast.show { opacity:1; }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -106,6 +107,14 @@ body { background:var(--bg); color:var(--text); min-height:100vh; min-height:100
     <button class="btn btn-reconnect" onclick="reconectarWA()" style="width:100%;">
       <i class="fa-solid fa-rotate"></i> Verificar conexión
     </button>
+
+    <!-- QR de vinculación (aparece solo cuando WhatsApp lo pide) -->
+    <div id="zonaQR" style="display:none; text-align:center; margin-top:16px; padding:18px; background:rgba(16,185,129,0.05); border:1px dashed rgba(16,185,129,0.4); border-radius:14px;">
+      <div style="font-size:0.8rem; font-weight:700; margin-bottom:4px;">📱 Escanea para vincular WhatsApp</div>
+      <div style="font-size:0.68rem; color:var(--muted); margin-bottom:12px;">WhatsApp → Dispositivos vinculados → Vincular dispositivo</div>
+      <div id="qrCanvas" style="display:inline-block; background:#fff; padding:12px; border-radius:12px;"></div>
+      <div id="qrHora" style="font-size:0.62rem; color:var(--muted); margin-top:10px;"></div>
+    </div>
   </div>
 
   <!-- Datos de la Empresa -->
@@ -252,6 +261,36 @@ const db = firebase.firestore();
 const UID_BOT = 'K8wx9X5GGOfindI1RGtIIQN3UGr1';
 
 // Cargar configuración
+// ===== ESTADO DEL BOT + QR EN VIVO (estado_bot/whatsapp) =====
+var _qrObj = null, _qrActual = '';
+db.collection('estado_bot').doc('whatsapp').onSnapshot(function(doc){
+  var st = document.getElementById('waStatus');
+  var zona = document.getElementById('zonaQR');
+  if(!doc.exists){ return; }
+  var d = doc.data();
+  if(d.conectado){
+    st.className = 'wa-status connected';
+    st.querySelector('.wa-value').innerHTML = '<span class="wa-dot on"></span> Conectado';
+    zona.style.display = 'none';
+    _qrActual = '';
+  } else {
+    st.className = 'wa-status disconnected';
+    st.querySelector('.wa-value').innerHTML = '<span class="wa-dot"></span> Desconectado';
+    if(d.qr){
+      zona.style.display = 'block';
+      if(d.qr !== _qrActual){
+        _qrActual = d.qr;
+        var canvas = document.getElementById('qrCanvas');
+        canvas.innerHTML = '';
+        _qrObj = new QRCode(canvas, { text: d.qr, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
+        document.getElementById('qrHora').textContent = 'QR generado: ' + new Date(d.actualizado || Date.now()).toLocaleTimeString('es-PE') + ' — se renueva solo si expira';
+      }
+    } else {
+      zona.style.display = 'none';
+    }
+  }
+}, function(e){ console.warn('estado_bot:', e.message); });
+
 function cargarConfig(){
   db.collection('configuracion').doc(UID_BOT).onSnapshot(function(doc){
     if(doc.exists){
