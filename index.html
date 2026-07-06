@@ -361,7 +361,7 @@
             white-space: nowrap;
         }
         .filter-tag.active {
-            background: var(--text-main);
+            background: linear-gradient(135deg, var(--blue-track), var(--purple-alpha));
             color: white;
         }
 
@@ -766,7 +766,7 @@
                     <h1>Hola, Admin 👋</h1>
                     <p>Aquí tienes el resumen de tu operación automatizada hoy.</p>
                 </div>
-                <button onclick="exportarClientes()" style="padding: 10px 20px; background: var(--text-main); color: white; border: none; border-radius: 8px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                <button onclick="exportarClientes()" style="padding: 10px 20px; background: linear-gradient(135deg, var(--blue-track), var(--purple-alpha)); color: white; border: none; border-radius: 8px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(0,82,255,0.25);">
                     <i class="fa-solid fa-download"></i> Exportar Clientes
                 </button>
             </div>
@@ -968,6 +968,22 @@
     </main>
 
     <script>
+        // ===== DASHBOARD FIREBASE (v4) =====
+        const firebaseConfig = {
+          apiKey: "AIzaSyAzDl7gaS40JoXt9OoCPzG9FyaVPz_O34I",
+          authDomain: "ridertrack-93c8a.firebaseapp.com",
+          projectId: "ridertrack-93c8a",
+          storageBucket: "ridertrack-93c8a.firebasestorage.app",
+          messagingSenderId: "851606828420",
+          appId: "1:851606828420:web:873a892a091394693e59d1"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const dbDash = firebase.firestore();
+        const UID_BOT = 'K8wx9X5GGOfindI1RGtIIQN3UGr1';
+
+        var ESTADOS_ENTREGA = ['efectivo','yape-rudy','cambio','mixto','yape-efectivo','pos','transferencia','yape-plin','pago-link','jose-smith','empresa'];
+        var ESTADOS_FALLIDOS = ['fallida','reprogramar','rechazado','devuelto','ausente','no-contesta','cancelado'];
+
         // ===================================================================
         // 🧩 REGISTRO DE MÓDULOS — el corazón del rompecabezas TrackVerse
         // Para integrar un módulo terminado: cambia estado a 'listo' y pon
@@ -1192,21 +1208,6 @@
         renderNav();
         navegarA('dashboard');
 
-        // ===== DASHBOARD FIREBASE (v4) =====
-        const firebaseConfig = {
-          apiKey: "AIzaSyAzDl7gaS40JoXt9OoCPzG9FyaVPz_O34I",
-          authDomain: "ridertrack-93c8a.firebaseapp.com",
-          projectId: "ridertrack-93c8a",
-          storageBucket: "ridertrack-93c8a.firebasestorage.app",
-          messagingSenderId: "851606828420",
-          appId: "1:851606828420:web:873a892a091394693e59d1"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const dbDash = firebase.firestore();
-        const UID_BOT = 'K8wx9X5GGOfindI1RGtIIQN3UGr1';
-
-        var ESTADOS_ENTREGA = ['efectivo','yape-rudy','cambio','mixto','yape-efectivo','pos','transferencia','yape-plin','pago-link','jose-smith','empresa'];
-        var ESTADOS_FALLIDOS = ['fallida','reprogramar','rechazado','devuelto','ausente','no-contesta','cancelado'];
 
         function actualizarDashboard(){
           var inicioHoy = new Date();
