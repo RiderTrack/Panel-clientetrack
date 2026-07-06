@@ -145,11 +145,14 @@ body { background:var(--bg-color); color:var(--text-main); min-height:100vh; min
     <h2 style="font-size:1rem;font-weight:700;margin-bottom:16px;"><i class="fa-solid fa-message"></i> Plantillas</h2>
     <div class="cat-title">Categorías</div>
     <div class="cat-item active" onclick="setCategoria('todas', this)">📂 Todas <span class="count" id="c-todas">0</span></div>
+    <div class="cat-title" style="margin-top:20px;">🤖 Bot WhatsApp (Automáticas)</div>
     <div class="cat-item" onclick="setCategoria('saludos', this)">👋 Saludos <span class="count" id="c-saludos">0</span></div>
     <div class="cat-item" onclick="setCategoria('pagos', this)">💳 Pagos <span class="count" id="c-pagos">0</span></div>
     <div class="cat-item" onclick="setCategoria('entrega', this)">🚚 Entrega <span class="count" id="c-entrega">0</span></div>
     <div class="cat-item" onclick="setCategoria('fallidos', this)">⚠️ Fallidos <span class="count" id="c-fallidos">0</span></div>
+    <div class="cat-title" style="margin-top:20px;">📤 Mensajes Manuales (Tú envías)</div>
     <div class="cat-item" onclick="setCategoria('personalizado', this)">✨ Personalizado <span class="count" id="c-personalizado">0</span></div>
+    <div class="cat-item" onclick="setCategoria('ridertrack', this)">🛵 RiderTrack <span class="count" id="c-ridertrack">0</span></div>
   </div>
 
   <!-- Main -->
@@ -159,11 +162,12 @@ body { background:var(--bg-color); color:var(--text-main); min-height:100vh; min
       <h1><i class="fa-solid fa-message"></i> Plantillas</h1>
       <select id="catMob" onchange="setCategoria(this.value, null)">
         <option value="todas">📂 Todas</option>
-        <option value="saludos">👋 Saludos</option>
-        <option value="pagos">💳 Pagos</option>
-        <option value="entrega">🚚 Entrega</option>
-        <option value="fallidos">⚠️ Fallidos</option>
-        <option value="personalizado">✨ Personalizado</option>
+        <option value="saludos">👋 Saludos (Bot)</option>
+        <option value="pagos">💳 Pagos (Bot)</option>
+        <option value="entrega">🚚 Entrega (Bot)</option>
+        <option value="fallidos">⚠️ Fallidos (Bot)</option>
+        <option value="personalizado">✨ Personalizado (Manual)</option>
+        <option value="ridertrack">🛵 RiderTrack (Manual)</option>
       </select>
     </div>
 
@@ -197,11 +201,16 @@ body { background:var(--bg-color); color:var(--text-main); min-height:100vh; min
     <div class="field">
       <label>Categoría</label>
       <select id="tplCategoria">
-        <option value="saludos">👋 Saludos</option>
-        <option value="pagos">💳 Pagos</option>
-        <option value="entrega">🚚 Entrega</option>
-        <option value="fallidos">⚠️ Fallidos</option>
-        <option value="personalizado">✨ Personalizado</option>
+        <optgroup label="🤖 Bot WhatsApp (Automáticas)">
+          <option value="saludos">👋 Saludos</option>
+          <option value="pagos">💳 Pagos</option>
+          <option value="entrega">🚚 Entrega</option>
+          <option value="fallidos">⚠️ Fallidos</option>
+        </optgroup>
+        <optgroup label="📤 Mensajes Manuales (Tú envías)">
+          <option value="personalizado">✨ Personalizado</option>
+          <option value="ridertrack">🛵 RiderTrack (Broadcast, Entrega, etc.)</option>
+        </optgroup>
       </select>
     </div>
 
@@ -209,16 +218,31 @@ body { background:var(--bg-color); color:var(--text-main); min-height:100vh; min
       <label style="display:block;font-size:0.72rem;color:var(--muted);font-weight:600;margin-bottom:4px;">🤖 Conectar al bot (reemplaza la respuesta automática)</label>
       <select id="tplClave">
         <option value="">— Solo plantilla manual (no toca el bot) —</option>
-        <option value="menu">Menú principal (hola / menú)</option>
-        <option value="cuantoPagar">Opción 1 · ¿Cuánto debo pagar?</option>
-        <option value="horaLlegada">Opción 2 · ¿A qué hora llega?</option>
-        <option value="queMeTraen">Opción 3 · ¿Qué me traen?</option>
-        <option value="yapeQR">Opción 4 · Yape / QR (texto del QR)</option>
-        <option value="cuentasBanco">Opción 5 · Cuentas bancarias</option>
-        <option value="yaPague">Opción 6 · Ya pagué</option>
-        <option value="hablarMotorizado">Opción 7 · Hablar con motorizado</option>
-        <option value="noPuedoRecibir">Opción 8 · No puedo recibir</option>
-        <option value="problemaPedido">Opción 9 · Problema con pedido</option>
+        <optgroup label="🤖 Respuestas del Menú (1-9)">
+          <option value="menu">Menú principal (hola / menú)</option>
+          <option value="cuantoPagar">Opción 1 · ¿Cuánto debo pagar?</option>
+          <option value="horaLlegada">Opción 2 · ¿A qué hora llega?</option>
+          <option value="queMeTraen">Opción 3 · ¿Qué me traen?</option>
+          <option value="yapeQR">Opción 4 · Yape / QR (texto del QR)</option>
+          <option value="cuentasBanco">Opción 5 · Cuentas bancarias</option>
+          <option value="yaPague">Opción 6 · Ya pagué</option>
+          <option value="hablarMotorizado">Opción 7 · Hablar con motorizado</option>
+          <option value="noPuedoRecibir">Opción 8 · No puedo recibir</option>
+          <option value="problemaPedido">Opción 9 · Problema con pedido</option>
+        </optgroup>
+        <optgroup label="🛵 Acciones desde RiderTrack">
+          <option value="iniciarRuta">Iniciar Ruta (Broadcast a todos)</option>
+          <option value="avisarLlegada">Avisar Llegada (Voy en camino)</option>
+          <option value="entregaCompletada">Entrega Completada</option>
+          <option value="solicitarUbicacion">Solicitar Ubicación</option>
+        </optgroup>
+        <optgroup label="⚠️ Estados Fallidos (desde RiderTrack)">
+          <option value="noSeEntrego">No se Entregó</option>
+          <option value="ausente">Cliente Ausente</option>
+          <option value="rechazado">Pedido Rechazado</option>
+          <option value="cancelado">Pedido Cancelado</option>
+          <option value="noContesta">No Contesta</option>
+        </optgroup>
       </select>
       <p style="font-size:0.68rem;color:var(--muted);margin-top:6px;">Si eliminas o desconectas la plantilla, el bot vuelve automáticamente a su mensaje original de mensajes.js — imposible romperlo.</p>
     </div>
@@ -375,7 +399,7 @@ function render(){
 
 // Contadores
 function actualizarContadores(){
-  var cats = { todas:0, saludos:0, pagos:0, entrega:0, fallidos:0, personalizado:0 };
+  var cats = { todas:0, saludos:0, pagos:0, entrega:0, fallidos:0, personalizado:0, ridertrack:0 };
   plantillas.forEach(function(p){
     cats.todas++;
     if(cats[p.categoria] !== undefined) cats[p.categoria]++;
