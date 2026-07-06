@@ -209,21 +209,21 @@ body { background:var(--bg); color:var(--text); min-height:100vh; min-height:100
   <div class="section">
     <div class="section-title"><i class="fa-solid fa-palette"></i> Apariencia</div>
     <div class="theme-grid">
-      <div class="theme-card active" onclick="setTema('claro', this)">
-        <div class="theme-preview" style="background:linear-gradient(135deg,#F8FAFC,#E2E8F0);"></div>
-        <div class="theme-name">Claro</div>
+      <div class="theme-card active" onclick="setTema('ridertrack', this)">
+        <div class="theme-preview" style="background:linear-gradient(135deg,#F8FAFC,#0052FF);"></div>
+        <div class="theme-name">RiderTrack</div>
       </div>
-      <div class="theme-card" onclick="setTema('oscuro', this)">
-        <div class="theme-preview" style="background:linear-gradient(135deg,#0F172A,#1E293B);"></div>
-        <div class="theme-name">Oscuro</div>
+      <div class="theme-card" onclick="setTema('gaming', this)">
+        <div class="theme-preview" style="background:linear-gradient(135deg,#1E1F22,#5865F2);"></div>
+        <div class="theme-name">Gaming</div>
       </div>
-      <div class="theme-card" onclick="setTema('azul', this)">
-        <div class="theme-preview" style="background:linear-gradient(135deg,#0052FF,#7C3AED);"></div>
-        <div class="theme-name">Azul</div>
+      <div class="theme-card" onclick="setTema('apple', this)">
+        <div class="theme-preview" style="background:linear-gradient(135deg,#F5F5F7,#0A84FF);"></div>
+        <div class="theme-name">Apple</div>
       </div>
-      <div class="theme-card" onclick="setTema('verde', this)">
-        <div class="theme-preview" style="background:linear-gradient(135deg,#10B981,#059669);"></div>
-        <div class="theme-name">Verde</div>
+      <div class="theme-card" onclick="setTema('future', this)">
+        <div class="theme-preview" style="background:linear-gradient(135deg,#0A0E1A,#00E5FF);"></div>
+        <div class="theme-name">Future</div>
       </div>
     </div>
   </div>
@@ -338,12 +338,15 @@ function setTema(t, el){
   } else {
     var cards = document.querySelectorAll('.theme-card');
     cards.forEach(function(c){ c.classList.remove('active'); });
-    if(cards[t === 'claro' ? 0 : t === 'oscuro' ? 1 : t === 'azul' ? 2 : 3]){
-      cards[t === 'claro' ? 0 : t === 'oscuro' ? 1 : t === 'azul' ? 2 : 3].classList.add('active');
-    }
+    var idx = t === 'ridertrack' ? 0 : t === 'gaming' ? 1 : t === 'apple' ? 2 : 3;
+    if(cards[idx]) cards[idx].classList.add('active');
   }
-  // Guardar tema en localStorage
-  localStorage.setItem('trackverse_tema', t);
+  // Guardar en la clave que lee el panel (tv_tema) — se aplica al instante
+  try{ localStorage.setItem('tv_tema', t); }catch(e){}
+  try{ localStorage.setItem('trackverse_tema', t); }catch(e){}
+  try{ if(window.parent && window.parent !== window && window.parent.aplicarTema) window.parent.aplicarTema(); }catch(e){}
+  db.collection('configuracion').doc(UID_BOT).set({ tema: t }, { merge: true }).catch(function(){});
+  mostrarToast('Tema aplicado: ' + t + ' ✓');
 }
 
 // Verificar conexión WA

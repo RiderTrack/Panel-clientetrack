@@ -648,6 +648,36 @@
         .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.35); backdrop-filter: blur(2px); z-index: 90; opacity: 0; transition: opacity 0.25s; }
         .sidebar-overlay.show { opacity: 1; }
 
+        /* ===== TEMAS GLOBALES DEL PANEL (se eligen en Configuración) ===== */
+        body[data-tema="apple"] { --blue-track: #0A84FF; --purple-alpha: #5E5CE6; --bg-color: #F5F5F7; --surface: rgba(255,255,255,0.92); }
+        body[data-tema="gaming"] { --blue-track: #5865F2; --purple-alpha: #EB459E; --green-wa: #57F287; --bg-color: #1E1F22; --surface: rgba(43,45,49,0.92); --text-main: #F2F3F5; --text-muted: #949BA4; --border-light: rgba(78,80,88,0.6); }
+        body[data-tema="gaming"] .sidebar, body[data-tema="gaming"] .topbar, body[data-tema="gaming"] .menu-btn { background: rgba(30,31,34,0.95); }
+        body[data-tema="gaming"] .glass, body[data-tema="gaming"] .metric-card, body[data-tema="gaming"] .search-bar { background: rgba(43,45,49,0.9); }
+        body[data-tema="future"] { --blue-track: #00E5FF; --purple-alpha: #7C4DFF; --bg-color: #0A0E1A; --surface: rgba(16,22,38,0.92); --text-main: #E6F1FF; --text-muted: #7A8BA6; --border-light: rgba(0,229,255,0.15); }
+        body[data-tema="future"] .sidebar, body[data-tema="future"] .topbar, body[data-tema="future"] .menu-btn { background: rgba(10,14,26,0.95); }
+        body[data-tema="future"] .glass, body[data-tema="future"] .metric-card, body[data-tema="future"] .search-bar { background: rgba(16,22,38,0.9); }
+
+        /* ===== TOPBAR FUNCIONAL: resultados, campana y rayo ===== */
+        .search-bar { position: relative; }
+        .search-results { position:absolute; top:calc(100% + 8px); left:0; right:0; background:var(--surface); backdrop-filter:blur(14px); border:1px solid var(--border-light); border-radius:14px; box-shadow:var(--shadow-md); z-index:400; max-height:320px; overflow-y:auto; display:none; }
+        .search-results.show { display:block; }
+        .sr-item { display:flex; align-items:center; gap:10px; padding:11px 14px; cursor:pointer; border-bottom:1px solid var(--border-light); font-size:0.82rem; }
+        .sr-item:last-child { border-bottom:none; }
+        .sr-item:hover, .sr-item:active { background:rgba(0,82,255,0.06); }
+        .sr-item .sr-ava { width:30px; height:30px; border-radius:10px; color:#fff; font-weight:700; font-size:0.72rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .sr-item .sr-sub { font-size:0.68rem; color:var(--text-muted); }
+        .top-icon { position:relative; cursor:pointer; }
+        .top-badge { position:absolute; top:-7px; right:-8px; background:#EF4444; color:#fff; font-size:0.58rem; font-weight:800; min-width:16px; height:16px; border-radius:8px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
+        .drop { position:fixed; top:70px; right:14px; width:min(320px, calc(100vw - 28px)); background:var(--surface); backdrop-filter:blur(14px); border:1px solid var(--border-light); border-radius:16px; box-shadow:var(--shadow-md); z-index:400; display:none; overflow:hidden; }
+        .drop.show { display:block; }
+        .drop-head { padding:12px 16px; font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); border-bottom:1px solid var(--border-light); }
+        .drop-item { display:flex; align-items:center; gap:11px; padding:12px 16px; cursor:pointer; border-bottom:1px solid var(--border-light); font-size:0.82rem; }
+        .drop-item:last-child { border-bottom:none; }
+        .drop-item:active { background:rgba(0,82,255,0.06); }
+        .drop-item i { width:20px; text-align:center; color:var(--blue-track); }
+        .drop-item .di-sub { font-size:0.68rem; color:var(--text-muted); display:block; }
+        .drop-vacio { padding:22px 16px; text-align:center; font-size:0.78rem; color:var(--text-muted); }
+
         /* ===================================================
            LAYOUT MÓVIL — al final del CSS (regla de oro #3)
            =================================================== */
@@ -701,16 +731,32 @@
 
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="cerrarSidebar()"></div>
 
+    <!-- Campanita: mensajes sin leer -->
+    <div class="drop" id="dropNotis">
+        <div class="drop-head">🔔 Mensajes sin leer</div>
+        <div id="notisLista"><div class="drop-vacio">Sin mensajes nuevos ✨</div></div>
+    </div>
+    <!-- Rayito: acciones rápidas -->
+    <div class="drop" id="dropRapido">
+        <div class="drop-head">⚡ Acciones rápidas</div>
+        <div class="drop-item" onclick="cerrarDrops();navegarA('conversaciones')"><i class="fa-brands fa-whatsapp"></i><div>Abrir chats<span class="di-sub">ClienteTrack</span></div></div>
+        <div class="drop-item" onclick="cerrarDrops();navegarA('pedidos')"><i class="fa-solid fa-box-open"></i><div>Pedidos de hoy<span class="di-sub">Ruta y caja del día</span></div></div>
+        <div class="drop-item" onclick="cerrarDrops();navegarA('clientes')"><i class="fa-solid fa-users"></i><div>Clientes<span class="di-sub">CRM y fichas</span></div></div>
+        <div class="drop-item" onclick="cerrarDrops();exportarClientes()"><i class="fa-solid fa-file-excel"></i><div>Exportar Excel<span class="di-sub">Reporte con estilos</span></div></div>
+        <div class="drop-item" onclick="cerrarDrops();navegarA('config')"><i class="fa-solid fa-gear"></i><div>Configuración<span class="di-sub">Temas, datos, WhatsApp</span></div></div>
+    </div>
+
     <main class="main-content">
         <header class="topbar">
             <button class="menu-btn" id="menuBtn" onclick="abrirSidebar()"><i class="fa-solid fa-bars"></i></button>
             <div class="search-bar">
                 <i class="fa-solid fa-magnifying-glass" style="color: var(--text-muted)"></i>
-                <input type="text" placeholder="Buscar clientes, pedidos, mensajes... (Ctrl+K)">
+                <input type="text" id="busGlobal" placeholder="Buscar cliente por nombre, teléfono o distrito..." autocomplete="off">
+                <div class="search-results" id="busResultados"></div>
             </div>
             <div style="display: flex; gap: 16px; color: var(--text-muted); font-size: 20px;">
-                <i class="fa-regular fa-bell" style="cursor: pointer;"></i>
-                <i class="fa-solid fa-bolt" style="color: #F59E0B; cursor: pointer;"></i>
+                <span class="top-icon" onclick="toggleDrop('dropNotis')"><i class="fa-regular fa-bell"></i><span class="top-badge" id="notisBadge" style="display:none;">0</span></span>
+                <span class="top-icon" onclick="toggleDrop('dropRapido')"><i class="fa-solid fa-bolt" style="color: #F59E0B;"></i></span>
             </div>
         </header>
 
@@ -1048,6 +1094,98 @@
                 this.classList.toggle('off');
                 this.style.background = this.classList.contains('off') ? 'var(--text-muted)' : 'var(--green-wa)';
             });
+        }
+
+        // ===== TEMAS: aplicar el elegido en Configuración (localStorage compartido) =====
+        function aplicarTema(){
+            var t = '';
+            try{ t = localStorage.getItem('tv_tema') || ''; }catch(e){}
+            if(t && t !== 'ridertrack') document.body.setAttribute('data-tema', t);
+            else document.body.removeAttribute('data-tema');
+        }
+        aplicarTema();
+        window.addEventListener('storage', function(e){ if(e.key === 'tv_tema') aplicarTema(); });
+
+        // ===== BUSCADOR GLOBAL =====
+        var _busClientes = {};
+        function _busNorm(t){ t = String(t||'').replace(/\D/g,''); if(t.indexOf('51')===0 && t.length>9) t = t.slice(2); return t; }
+        dbDash.collection('ruta_activa').doc(UID_BOT).onSnapshot(function(doc){
+            if(!doc.exists) return;
+            (doc.data().clientes || []).forEach(function(cl){
+                var tel = _busNorm(cl.cel); if(!tel) return;
+                _busClientes[tel] = { tel: tel, nombre: cl.nombre || 'Cliente', dist: cl.dist || '', prod: cl.prod || '', hoy: true };
+            });
+        });
+        dbDash.collection('clientes_registrados').onSnapshot(function(snap){
+            snap.forEach(function(d){
+                var cl = d.data(); var tel = _busNorm(cl.telefono || d.id); if(!tel) return;
+                if(!_busClientes[tel]) _busClientes[tel] = { tel: tel, nombre: cl.nombre || 'Cliente', dist: cl.dist || '', prod: cl.prod || '', hoy: false };
+            });
+        });
+        var _busInput = document.getElementById('busGlobal');
+        var _busBox = document.getElementById('busResultados');
+        _busInput.addEventListener('input', function(){
+            var q = this.value.toLowerCase().trim();
+            if(q.length < 2){ _busBox.classList.remove('show'); return; }
+            var qd = q.replace(/\D/g,'');
+            var res = Object.keys(_busClientes).map(function(k){ return _busClientes[k]; }).filter(function(cl){
+                return (cl.nombre||'').toLowerCase().indexOf(q) !== -1
+                    || (qd.length > 2 && cl.tel.indexOf(qd) !== -1)
+                    || (cl.dist||'').toLowerCase().indexOf(q) !== -1;
+            }).slice(0, 8);
+            if(!res.length){ _busBox.innerHTML = '<div class="drop-vacio">Sin resultados para "' + q + '"</div>'; _busBox.classList.add('show'); return; }
+            var h = '';
+            res.forEach(function(cl){
+                var ini = (cl.nombre||'?').trim().charAt(0).toUpperCase();
+                h += '<div class="sr-item" onclick="window.open(\'https://wa.me/51' + cl.tel + '\', \'_blank\')">';
+                h += '<div class="sr-ava" style="background:linear-gradient(135deg,#0052FF,#7C3AED)">' + ini + '</div>';
+                h += '<div><div>' + cl.nombre + (cl.hoy ? ' <span style="font-size:0.58rem;font-weight:800;color:#10B981;">HOY</span>' : '') + '</div>';
+                h += '<span class="sr-sub">+51 ' + cl.tel + (cl.dist ? ' · ' + cl.dist : '') + '</span></div></div>';
+            });
+            _busBox.innerHTML = h;
+            _busBox.classList.add('show');
+        });
+        document.addEventListener('click', function(e){
+            if(!e.target.closest('.search-bar')) _busBox.classList.remove('show');
+            if(!e.target.closest('.top-icon') && !e.target.closest('.drop')) cerrarDrops();
+        });
+
+        // ===== CAMPANITA: mensajes sin leer en vivo =====
+        dbDash.collection('mensajes_clientes').where('leido','==',false).onSnapshot(function(snap){
+            var porCliente = {};
+            snap.forEach(function(d){
+                var m = d.data();
+                if(m.tipo !== 'entrante') return;
+                var tel = _busNorm(m.telefono);
+                if(!porCliente[tel]) porCliente[tel] = { nombre: m.nombre || 'Cliente', tel: tel, n: 0, ultimo: '' , ts: 0};
+                porCliente[tel].n++;
+                if((m.timestamp||0) > porCliente[tel].ts){ porCliente[tel].ts = m.timestamp||0; porCliente[tel].ultimo = m.texto || ''; }
+            });
+            var lista = Object.keys(porCliente).map(function(k){ return porCliente[k]; }).sort(function(a,b){ return b.ts - a.ts; });
+            var total = lista.reduce(function(s,x){ return s + x.n; }, 0);
+            var badge = document.getElementById('notisBadge');
+            badge.style.display = total ? 'flex' : 'none';
+            badge.textContent = total > 99 ? '99+' : total;
+            var box = document.getElementById('notisLista');
+            if(!lista.length){ box.innerHTML = '<div class="drop-vacio">Sin mensajes nuevos ✨</div>'; return; }
+            var h = '';
+            lista.slice(0, 6).forEach(function(x){
+                h += '<div class="drop-item" onclick="cerrarDrops();navegarA(\'conversaciones\')">';
+                h += '<i class="fa-solid fa-envelope"></i><div style="min-width:0;flex:1;">' + x.nombre + ' <b style="color:#EF4444;font-size:0.7rem;">(' + x.n + ')</b>';
+                h += '<span class="di-sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + String(x.ultimo).substring(0, 42) + '</span></div></div>';
+            });
+            box.innerHTML = h;
+        }, function(e){ console.warn('notis:', e.message); });
+
+        // ===== Dropdowns =====
+        function toggleDrop(id){
+            var el = document.getElementById(id);
+            var estaba = el.classList.contains('show');
+            cerrarDrops();
+            if(!estaba) el.classList.add('show');
+        }
+        function cerrarDrops(){
+            document.querySelectorAll('.drop').forEach(function(d){ d.classList.remove('show'); });
         }
 
         // ===== Arranque =====

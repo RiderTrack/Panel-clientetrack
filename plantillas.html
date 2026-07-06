@@ -205,6 +205,24 @@ body { background:var(--bg-color); color:var(--text-main); min-height:100vh; min
       </select>
     </div>
 
+    <div class="field" style="margin-top:12px;">
+      <label style="display:block;font-size:0.72rem;color:var(--muted);font-weight:600;margin-bottom:4px;">🤖 Conectar al bot (reemplaza la respuesta automática)</label>
+      <select id="tplClave">
+        <option value="">— Solo plantilla manual (no toca el bot) —</option>
+        <option value="menu">Menú principal (hola / menú)</option>
+        <option value="cuantoPagar">Opción 1 · ¿Cuánto debo pagar?</option>
+        <option value="horaLlegada">Opción 2 · ¿A qué hora llega?</option>
+        <option value="queMeTraen">Opción 3 · ¿Qué me traen?</option>
+        <option value="yapeQR">Opción 4 · Yape / QR (texto del QR)</option>
+        <option value="cuentasBanco">Opción 5 · Cuentas bancarias</option>
+        <option value="yaPague">Opción 6 · Ya pagué</option>
+        <option value="hablarMotorizado">Opción 7 · Hablar con motorizado</option>
+        <option value="noPuedoRecibir">Opción 8 · No puedo recibir</option>
+        <option value="problemaPedido">Opción 9 · Problema con pedido</option>
+      </select>
+      <p style="font-size:0.68rem;color:var(--muted);margin-top:6px;">Si eliminas o desconectas la plantilla, el bot vuelve automáticamente a su mensaje original de mensajes.js — imposible romperlo.</p>
+    </div>
+
     <div class="field">
       <label>Mensaje</label>
       <div class="chips-bar" id="chipsBar">
@@ -325,6 +343,9 @@ function render(){
 
   var html = '';
   arr.forEach(function(p){
+    var badgeBot = p.clave ? (p.activa !== false
+      ? '<span style="font-size:0.6rem;font-weight:800;background:rgba(16,185,129,0.12);color:#10B981;padding:3px 8px;border-radius:7px;text-transform:uppercase;">🤖 Conectada</span>'
+      : '<span style="font-size:0.6rem;font-weight:800;background:rgba(100,116,139,0.1);color:#64748B;padding:3px 8px;border-radius:7px;text-transform:uppercase;">Pausada</span>') : '';
     var preview = (p.mensaje||'').replace(/\{nombre\}/g, datosPrueba.nombre)
       .replace(/\{producto\}/g, datosPrueba.producto)
       .replace(/\{monto\}/g, datosPrueba.monto)
@@ -339,7 +360,7 @@ function render(){
     var catIcon = { saludos:'👋', pagos:'💳', entrega:'🚚', fallidos:'⚠️', personalizado:'✨' }[p.categoria] || '📄';
 
     html += '<div class="tpl-card" onclick="editarPlantilla(\'' + p.id + '\')">';
-    html += '<div class="tpl-cat">' + catIcon + ' ' + (p.categoria||'personalizado') + '</div>';
+    html += '<div class="tpl-cat" style="display:flex;align-items:center;gap:6px;">' + catIcon + ' ' + (p.categoria||'personalizado') + ' ' + badgeBot + '</div>';
     html += '<div class="tpl-name">' + escapeHtml(p.nombre||'Sin nombre') + '</div>';
     html += '<div class="tpl-preview">' + formatearWhatsApp(preview.substring(0,120)) + (preview.length>120?'...':'') + '</div>';
     html += '<div class="tpl-actions">';
@@ -386,6 +407,7 @@ function nuevaPlantilla(){
   document.getElementById('editorTitulo').textContent = 'Nueva Plantilla';
   document.getElementById('tplNombre').value = '';
   document.getElementById('tplCategoria').value = 'personalizado';
+  document.getElementById('tplClave').value = '';
   document.getElementById('tplMensaje').value = '';
   actualizarPreview();
   document.getElementById('editorModal').classList.add('show');
@@ -398,6 +420,7 @@ function editarPlantilla(id){
   document.getElementById('editorTitulo').textContent = 'Editar: ' + p.nombre;
   document.getElementById('tplNombre').value = p.nombre || '';
   document.getElementById('tplCategoria').value = p.categoria || 'personalizado';
+  document.getElementById('tplClave').value = p.clave || '';
   document.getElementById('tplMensaje').value = p.mensaje || '';
   actualizarPreview();
   document.getElementById('editorModal').classList.add('show');
@@ -462,14 +485,17 @@ async function guardarPlantilla(){
   if(!mensaje){ alert('Escribe el mensaje'); return; }
 
   try {
+    var clave = document.getElementById('tplClave').value || '';
     if(editandoId){
       await db.collection('plantillas_mensajes').doc(editandoId).set({
         nombre: nombre, categoria: categoria, mensaje: mensaje,
+        clave: clave, activa: clave ? true : false,
         updatedAt: new Date().toISOString()
       }, { merge: true });
     } else {
       await db.collection('plantillas_mensajes').add({
         nombre: nombre, categoria: categoria, mensaje: mensaje,
+        clave: clave, activa: clave ? true : false,
         createdAt: new Date().toISOString()
       });
     }
