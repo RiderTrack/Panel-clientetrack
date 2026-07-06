@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Configuración | TrackVerse</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+:root {
+  --blue: #0052FF;
+  --purple: #7C3AED;
+  --green: #10B981;
+  --bg: #F8FAFC;
+  --surface: rgba(255,255,255,0.85);
+  --text: #0F172A;
+  --muted: #64748B;
+  --border: rgba(226,232,240,0.6);
+  --shadow: 0 10px 40px -10px rgba(0,0,0,0.08);
+  --radius: 12px;
+}
+* { margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; -webkit-tap-highlight-color:transparent; }
+body { background:var(--bg); color:var(--text); min-height:100vh; min-height:100dvh;
+  background-image: radial-gradient(at 0% 0%, rgba(0,82,255,0.06) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(124,58,237,0.06) 0px, transparent 50%);
+}
+.glass { background:var(--surface); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid var(--border); box-shadow:var(--shadow); }
+
+.app { max-width:680px; margin:0 auto; padding:20px; }
+
+/* Header */
+.header { margin-bottom:24px; }
+.header h1 { font-size:1.4rem; font-weight:700; display:flex; align-items:center; gap:8px; }
+.header p { font-size:0.8rem; color:var(--muted); margin-top:4px; }
+
+/* Secciones */
+.section { background:var(--surface); backdrop-filter:blur(16px); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:16px; box-shadow:var(--shadow); }
+.section-title { font-size:0.82rem; font-weight:700; color:var(--blue); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:16px; display:flex; align-items:center; gap:8px; padding-bottom:12px; border-bottom:1px solid var(--border); }
+
+/* Campos */
+.field { margin-bottom:14px; }
+.field:last-child { margin-bottom:0; }
+.field label { display:block; font-size:0.72rem; color:var(--muted); font-weight:600; margin-bottom:4px; }
+.field input, .field textarea { width:100%; padding:10px 14px; border:1px solid var(--border); border-radius:8px; font-size:0.88rem; font-family:inherit; color:var(--text); background:rgba(100,116,139,0.04); outline:none; transition:all 0.2s; }
+.field input:focus, .field textarea:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(0,82,255,0.1); }
+.field-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+@media(max-width:480px){ .field-row { grid-template-columns:1fr; } }
+
+/* WhatsApp Status */
+.wa-status { display:flex; align-items:center; gap:12px; padding:14px; border-radius:10px; margin-bottom:14px; }
+.wa-status.connected { background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.2); }
+.wa-status.disconnected { background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); }
+.wa-icon { width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.3rem; flex-shrink:0; }
+.wa-status.connected .wa-icon { background:rgba(16,185,129,0.15); color:var(--green); }
+.wa-status.disconnected .wa-icon { background:rgba(239,68,68,0.15); color:#EF4444; }
+.wa-info { flex:1; }
+.wa-info .wa-label { font-size:0.7rem; color:var(--muted); }
+.wa-info .wa-value { font-size:0.92rem; font-weight:600; }
+.wa-dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:4px; }
+.wa-dot.on { background:var(--green); animation:pulse 2s infinite; }
+.wa-dot.off { background:#EF4444; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+/* Botones */
+.btn { padding:12px 20px; border:none; border-radius:8px; font-weight:600; font-size:0.88rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s; font-family:inherit; }
+.btn:active { transform:scale(0.97); }
+.btn-save { background:linear-gradient(135deg,var(--blue),var(--purple)); color:#fff; width:100%; margin-top:8px; }
+.btn-reconnect { background:rgba(0,82,255,0.1); color:var(--blue); border:1px solid rgba(0,82,255,0.2); }
+
+/* Tema */
+.theme-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+.theme-card { padding:12px; border-radius:10px; border:2px solid var(--border); cursor:pointer; text-align:center; transition:all 0.2s; }
+.theme-card.active { border-color:var(--blue); background:rgba(0,82,255,0.05); }
+.theme-card:active { transform:scale(0.95); }
+.theme-preview { width:100%; height:40px; border-radius:6px; margin-bottom:6px; }
+.theme-name { font-size:0.68rem; font-weight:600; }
+
+/* Toast */
+.toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--text); color:#fff; padding:12px 24px; border-radius:8px; font-size:0.85rem; font-weight:600; z-index:9999; opacity:0; transition:opacity 0.3s; pointer-events:none; }
+.toast.show { opacity:1; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <h1><i class="fa-solid fa-gear"></i> Configuración</h1>
+    <p>Personaliza tu panel y tus datos de negocio</p>
+  </div>
+
+  <!-- Conexión WhatsApp -->
+  <div class="section">
+    <div class="section-title"><i class="fa-brands fa-whatsapp"></i> Conexión WhatsApp</div>
+    <div class="wa-status connected" id="waStatus">
+      <div class="wa-icon"><i class="fa-brands fa-whatsapp"></i></div>
+      <div class="wa-info">
+        <div class="wa-label">Estado del Bot</div>
+        <div class="wa-value"><span class="wa-dot on"></span> Conectado</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Número conectado</label>
+      <input type="text" id="cfg_wa_numero" value="+51 907 565 569" readonly>
+    </div>
+    <button class="btn btn-reconnect" onclick="reconectarWA()" style="width:100%;">
+      <i class="fa-solid fa-rotate"></i> Verificar conexión
+    </button>
+  </div>
+
+  <!-- Datos de la Empresa -->
+  <div class="section">
+    <div class="section-title"><i class="fa-solid fa-building"></i> Datos de la Empresa</div>
+    <div class="field">
+      <label>Nombre de la empresa</label>
+      <input type="text" id="cfg_empresa_nombre" value="MATE">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Teléfono de la empresa</label>
+        <input type="tel" id="cfg_empresa_telefono" value="956 203 893">
+      </div>
+      <div class="field">
+        <label>Yape de la empresa</label>
+        <input type="tel" id="cfg_empresa_yape" value="956 203 893">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Sitio Web</label>
+        <input type="text" id="cfg_empresa_web" value="tiendasmate.com">
+      </div>
+      <div class="field">
+        <label>Facebook</label>
+        <input type="text" id="cfg_empresa_fb" value="Matebelleza">
+      </div>
+    </div>
+    <div class="field">
+      <label>Instagram</label>
+      <input type="text" id="cfg_empresa_ig" value="@mate.ortopedia">
+    </div>
+  </div>
+
+  <!-- Datos del Rider -->
+  <div class="section">
+    <div class="section-title"><i class="fa-solid fa-motorcycle"></i> Datos del Rider</div>
+    <div class="field">
+      <label>Nombre completo</label>
+      <input type="text" id="cfg_rider_nombre" value="Rudy Alen">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>WhatsApp</label>
+        <input type="tel" id="cfg_rider_wa" value="907 565 569">
+      </div>
+      <div class="field">
+        <label>Teléfono de llamadas</label>
+        <input type="tel" id="cfg_rider_tel" value="919 582 554">
+      </div>
+    </div>
+  </div>
+
+  <!-- Datos de Pago -->
+  <div class="section">
+    <div class="section-title"><i class="fa-solid fa-credit-card"></i> Datos de Pago</div>
+    
+    <div style="font-size:0.78rem;font-weight:600;color:var(--green);margin-bottom:10px;">📲 Yape Personal</div>
+    <div class="field-row">
+      <div class="field">
+        <label>Número de Yape</label>
+        <input type="tel" id="cfg_yape_numero" value="980811297">
+      </div>
+      <div class="field">
+        <label>Titular</label>
+        <input type="text" id="cfg_yape_nombre" value="Lorenzo N. Tarazona T.">
+      </div>
+    </div>
+
+    <div style="font-size:0.78rem;font-weight:600;color:#0052FF;margin:16px 0 10px;">🏦 BCP (Soles)</div>
+    <div class="field">
+      <label>Titular</label>
+      <input type="text" id="cfg_bcp_titular" value="Lorenzo Tarazona Tenorio">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Número de cuenta</label>
+        <input type="text" id="cfg_bcp_cuenta" value="19105084935097">
+      </div>
+      <div class="field">
+        <label>CCI</label>
+        <input type="text" id="cfg_bcp_cci" value="00219110508493509754">
+      </div>
+    </div>
+
+    <div style="font-size:0.78rem;font-weight:600;color:#7C3AED;margin:16px 0 10px;">🏛️ Otros bancos (opcional)</div>
+    <div class="field-row">
+      <div class="field">
+        <label>Interbank - Cuenta</label>
+        <input type="text" id="cfg_ibk_cuenta" placeholder="Opcional">
+      </div>
+      <div class="field">
+        <label>BBVA - Cuenta</label>
+        <input type="text" id="cfg_bbva_cuenta" placeholder="Opcional">
+      </div>
+    </div>
+  </div>
+
+  <!-- Apariencia -->
+  <div class="section">
+    <div class="section-title"><i class="fa-solid fa-palette"></i> Apariencia</div>
+    <div class="theme-grid">
+      <div class="theme-card active" onclick="setTema('claro', this)">
+        <div class="theme-preview" style="background:linear-gradient(135deg,#F8FAFC,#E2E8F0);"></div>
+        <div class="theme-name">Claro</div>
+      </div>
+      <div class="theme-card" onclick="setTema('oscuro', this)">
+        <div class="theme-preview" style="background:linear-gradient(135deg,#0F172A,#1E293B);"></div>
+        <div class="theme-name">Oscuro</div>
+      </div>
+      <div class="theme-card" onclick="setTema('azul', this)">
+        <div class="theme-preview" style="background:linear-gradient(135deg,#0052FF,#7C3AED);"></div>
+        <div class="theme-name">Azul</div>
+      </div>
+      <div class="theme-card" onclick="setTema('verde', this)">
+        <div class="theme-preview" style="background:linear-gradient(135deg,#10B981,#059669);"></div>
+        <div class="theme-name">Verde</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Guardar -->
+  <button class="btn btn-save" onclick="guardarTodo()">
+    <i class="fa-solid fa-floppy-disk"></i> Guardar Configuración
+  </button>
+
+  <div style="height:40px;"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyAzDl7gaS40JoXt9OoCPzG9FyaVPz_O34I",
+  authDomain: "ridertrack-93c8a.firebaseapp.com",
+  projectId: "ridertrack-93c8a",
+  storageBucket: "ridertrack-93c8a.firebasestorage.app",
+  messagingSenderId: "851606828420",
+  appId: "1:851606828420:web:873a892a091394693e59d1"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const UID_BOT = 'K8wx9X5GGOfindI1RGtIIQN3UGr1';
+
+// Cargar configuración
+function cargarConfig(){
+  db.collection('configuracion').doc(UID_BOT).onSnapshot(function(doc){
+    if(doc.exists){
+      var c = doc.data();
+      // Llenar campos
+      if(c.empresa){
+        setVal('cfg_empresa_nombre', c.empresa.nombre);
+        setVal('cfg_empresa_telefono', c.empresa.telefono);
+        setVal('cfg_empresa_yape', c.empresa.yape);
+        setVal('cfg_empresa_web', c.empresa.web);
+        setVal('cfg_empresa_fb', c.empresa.facebook);
+        setVal('cfg_empresa_ig', c.empresa.instagram);
+      }
+      if(c.rider){
+        setVal('cfg_rider_nombre', c.rider.nombre);
+        setVal('cfg_rider_wa', c.rider.whatsapp);
+        setVal('cfg_rider_tel', c.rider.telefono);
+      }
+      if(c.pagos){
+        setVal('cfg_yape_numero', c.pagos.yape_numero);
+        setVal('cfg_yape_nombre', c.pagos.yape_nombre);
+        setVal('cfg_bcp_titular', c.pagos.bcp_titular);
+        setVal('cfg_bcp_cuenta', c.pagos.bcp_cuenta);
+        setVal('cfg_bcp_cci', c.pagos.bcp_cci);
+        setVal('cfg_ibk_cuenta', c.pagos.ibk_cuenta);
+        setVal('cfg_bbva_cuenta', c.pagos.bbva_cuenta);
+      }
+      if(c.tema) setTema(c.tema, null);
+    }
+  }, function(e){ console.warn('config:', e.message); });
+}
+
+function setVal(id, val){
+  var el = document.getElementById(id);
+  if(el && val !== undefined && val !== null) el.value = val;
+}
+
+// Guardar
+async function guardarTodo(){
+  var config = {
+    empresa: {
+      nombre: getVal('cfg_empresa_nombre'),
+      telefono: getVal('cfg_empresa_telefono'),
+      yape: getVal('cfg_empresa_yape'),
+      web: getVal('cfg_empresa_web'),
+      facebook: getVal('cfg_empresa_fb'),
+      instagram: getVal('cfg_empresa_ig')
+    },
+    rider: {
+      nombre: getVal('cfg_rider_nombre'),
+      whatsapp: getVal('cfg_rider_wa'),
+      telefono: getVal('cfg_rider_tel')
+    },
+    pagos: {
+      yape_numero: getVal('cfg_yape_numero'),
+      yape_nombre: getVal('cfg_yape_nombre'),
+      bcp_titular: getVal('cfg_bcp_titular'),
+      bcp_cuenta: getVal('cfg_bcp_cuenta'),
+      bcp_cci: getVal('cfg_bcp_cci'),
+      ibk_cuenta: getVal('cfg_ibk_cuenta'),
+      bbva_cuenta: getVal('cfg_bbva_cuenta')
+    },
+    updatedAt: new Date().toISOString()
+  };
+
+  try {
+    await db.collection('configuracion').doc(UID_BOT).set(config, { merge: true });
+    mostrarToast('✅ Configuración guardada');
+  } catch(e){
+    mostrarToast('❌ Error: ' + e.message);
+  }
+}
+
+function getVal(id){
+  var el = document.getElementById(id);
+  return el ? el.value.trim() : '';
+}
+
+// Tema
+function setTema(t, el){
+  if(el){
+    document.querySelectorAll('.theme-card').forEach(function(c){ c.classList.remove('active'); });
+    el.classList.add('active');
+  } else {
+    var cards = document.querySelectorAll('.theme-card');
+    cards.forEach(function(c){ c.classList.remove('active'); });
+    if(cards[t === 'claro' ? 0 : t === 'oscuro' ? 1 : t === 'azul' ? 2 : 3]){
+      cards[t === 'claro' ? 0 : t === 'oscuro' ? 1 : t === 'azul' ? 2 : 3].classList.add('active');
+    }
+  }
+  // Guardar tema en localStorage
+  localStorage.setItem('trackverse_tema', t);
+}
+
+// Verificar conexión WA
+function reconectarWA(){
+  mostrarToast('🔄 Verificando conexión...');
+  db.collection('ruta_activa').doc(UID_BOT).get().then(function(doc){
+    if(doc.exists && doc.data().activa){
+      mostrarToast('✅ Bot conectado y activo');
+    } else {
+      var status = document.getElementById('waStatus');
+      status.classList.remove('connected');
+      status.classList.add('disconnected');
+      status.querySelector('.wa-value').innerHTML = '<span class="wa-dot off"></span> Desconectado';
+      mostrarToast('⚠️ Bot no activo. Revisa Termux.');
+    }
+  }).catch(function(e){
+    mostrarToast('❌ Error: ' + e.message);
+  });
+}
+
+// Toast
+function mostrarToast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 3000);
+}
+
+// Iniciar
+cargarConfig();
+</script>
+
+</body>
+</html>
