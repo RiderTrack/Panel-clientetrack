@@ -9,6 +9,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    # Exponer secretos como env para poder usarlos en if: (GitHub no permite secrets en if directo)
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -66,18 +72,16 @@ jobs:
         run: npx cap sync android
 
       # ── RECUPERAR KEYSTORE PERMANENTE desde secretos ──
-      # Si NO configuraste los secretos KEYSTORE_BASE64/KEYSTORE_PASSWORD/KEY_ALIAS,
-      # este paso se salta y compila debug normal (con firma efímera = hay que desinstalar).
-      # Cuando SÍ los configures, firma con tu keystore permanente = actualiza sin desinstalar.
+      # GitHub no permite secrets en if: directo, por eso usamos env.KEYSTORE_BASE64
       - name: Decode Keystore
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        if: env.KEYSTORE_BASE64 != ''
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/trackverse.keystore
+          echo "$KEYSTORE_BASE64" | base64 -d > android/trackverse.keystore
           ls -la android/trackverse.keystore
           echo "✅ Keystore decodificado"
 
       - name: Configure Signing with trackverse keystore
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        if: env.KEYSTORE_BASE64 != ''
         working-directory: android
         run: |
           # Agregar signingConfig.trackverse al build.gradle
@@ -85,9 +89,9 @@ jobs:
               signingConfigs {\
                   trackverse {\
                       storeFile file("../../trackverse.keystore")\
-                      storePassword "${{ secrets.KEYSTORE_PASSWORD }}"\
-                      keyAlias "${{ secrets.KEY_ALIAS }}"\
-                      keyPassword "${{ secrets.KEYSTORE_PASSWORD }}"\
+                      storePassword "'"$KEYSTORE_PASSWORD"'"\
+                      keyAlias "'"$KEY_ALIAS"'"\
+                      keyPassword "'"$KEYSTORE_PASSWORD"'"\
                   }\
               }' app/build.gradle
           # Usar el signingConfig en debug Y release (misma firma siempre)
