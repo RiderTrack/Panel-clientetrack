@@ -36,6 +36,7 @@ jobs:
           cp pedidos.html www/
           cp plantillas.html www/
           cp configuracion.html www/
+          cp catalogo.html www/
 
       - name: Add Android Platform
         run: npx cap add android
