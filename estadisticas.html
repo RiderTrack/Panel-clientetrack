@@ -170,6 +170,14 @@
   }
   .btn-mini:active{transform:scale(0.95);}
 
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px);
+    background:var(--text); color:#fff; padding:12px 22px; border-radius:14px;
+    font-size:0.85rem; font-weight:600; z-index:9999; transition:transform .3s; white-space:nowrap;
+    box-shadow:0 8px 24px rgba(0,0,0,0.25);
+  }
+  .toast.show{transform:translateX(-50%) translateY(0);}
+
   /* ===== Escritorio — al final (regla de oro #3) ===== */
   @media (min-width: 700px){
     .kpis{grid-template-columns:repeat(4, 1fr);}
@@ -202,6 +210,8 @@
       <div class="loading"><i class="fa-solid fa-spinner"></i> Cargando estadísticas...</div>
     </div>
   </main>
+
+  <div class="toast" id="toast"></div>
 
 <script>
 // ===== FIREBASE =====
@@ -239,6 +249,14 @@ function fechaCorta(ts){
   if(!ts) return '';
   var d = new Date(ts);
   return d.toLocaleDateString('es-PE', {day:'2-digit', month:'short'});
+}
+function mostrarToast(msg){
+  var t = document.getElementById('toast');
+  if(!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 3000);
 }
 
 // ===== Estado =====
