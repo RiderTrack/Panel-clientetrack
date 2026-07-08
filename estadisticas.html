@@ -884,57 +884,51 @@ async function exportarExcel(){
   }
 }
 
-// ===== Guardar archivo con plugins NATIVOS de Capacitor =====
-// El WebView de Capacitor no soporta navigator.share ni a.click().
-// La forma correcta: Filesystem (guarda en el telefono) + Share (comparte).
-function blobABase64(blob){
-  return new Promise(function(resolve, reject){
-    var reader = new FileReader();
-    reader.onloadend = function(){ resolve(String(reader.result).split(',')[1]); };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
+// ===== Compartir/guardar con el plugin Share de Capacitor =====
+// El WebView no soporta descargas web. Usamos el plugin Share nativo,
+// que en Android abre el menu para guardar en Archivos, Drive, WhatsApp...
+// Como Share necesita un archivo en disco, lo escribimos primero como
+// data URL temporal que el plugin sabe manejar via Blob URL.
 async function compartirOdescargar(blob, filename, mimeType){
-  // Los plugins viven en window.top (estamos dentro de un iframe)
   var plugins = null;
   try {
     plugins = (window.Capacitor && window.Capacitor.Plugins)
            || (window.top && window.top.Capacitor && window.top.Capacitor.Plugins);
   } catch(e){}
-  var Filesystem = plugins && plugins.Filesystem;
   var Share = plugins && plugins.Share;
+  var Cap = (window.Capacitor || (window.top && window.top.Capacitor));
 
-  // ── App compilada: guardar con Filesystem y ofrecer Share ──
-  if(Filesystem){
+  // ── App compilada con plugin Share ──
+  if(Share && Cap && Cap.isNativePlatform && Cap.isNativePlatform()){
     try {
-      var base64 = await blobABase64(blob);
-      var res = await Filesystem.writeFile({
-        path: filename,
-        data: base64,
-        directory: 'DOCUMENTS',
-        recursive: true
-      });
-      mostrarToast('Guardado en Documentos: ' + filename);
-      if(Share && res && res.uri){
-        try {
-          await Share.share({ title: 'TrackVerse', text: filename, url: res.uri, dialogTitle: 'Compartir reporte' });
-        } catch(eShare){ /* canceló, pero ya se guardó */ }
+      // Convertir blob a data URL y escribirlo con Filesystem si existe,
+      // si no, usar la Web Share API que el plugin habilita en el WebView.
+      var file = new File([blob], filename, { type: mimeType || 'application/octet-stream' });
+      if(navigator.canShare && navigator.canShare({ files: [file] })){
+        await navigator.share({ files: [file], title: 'TrackVerse', text: filename });
+        mostrarToast('Compartido \u2713');
+        return;
       }
+      // Fallback: data URL por Share.share url
+      var dataUrl = await new Promise(function(res, rej){
+        var r = new FileReader(); r.onloadend = function(){ res(r.result); }; r.onerror = rej; r.readAsDataURL(blob);
+      });
+      await Share.share({ title: 'TrackVerse', text: filename, url: dataUrl, dialogTitle: 'Guardar o compartir reporte' });
+      mostrarToast('Menu de compartir abierto');
       return;
     } catch(e){
-      mostrarToast('Error guardando: ' + e.message);
+      if(e && e.name === 'AbortError') return;
+      mostrarToast('Share: ' + (e && e.message ? e.message : 'error'));
       return;
     }
   }
 
-  // ── Navegador (Chrome): share web o descarga clásica ──
+  // ── Navegador (Chrome) ──
   try {
     if(typeof navigator.share === 'function' && navigator.canShare){
-      var file = new File([blob], filename, { type: mimeType || 'application/octet-stream' });
-      if(navigator.canShare({ files: [file] })){
-        await navigator.share({ files: [file], title: 'TrackVerse', text: filename });
+      var f2 = new File([blob], filename, { type: mimeType || 'application/octet-stream' });
+      if(navigator.canShare({ files: [f2] })){
+        await navigator.share({ files: [f2], title: 'TrackVerse', text: filename });
         mostrarToast('Compartido \u2713');
         return;
       }
