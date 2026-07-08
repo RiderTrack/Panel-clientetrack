@@ -943,32 +943,44 @@ function esAPK(){
 // no siempre se puede detectar de forma fiable -> en vez de adivinar el entorno,
 // se intenta el metodo mas compatible primero y se cae al clasico solo si falla.
 async function compartirOdescargar(blob, filename, mimeType){
-  try {
-    var file = new File([blob], filename, { type: mimeType || 'application/octet-stream' });
-    if(navigator.canShare && navigator.canShare({ files: [file] })){
-      await navigator.share({
-        files: [file],
-        title: 'TrackVerse',
-        text: '📊 ' + filename
-      });
-      mostrarToast('Archivo compartido ✓');
+  // DIAGNOSTICO: mostrar en pantalla qué soporta este entorno
+  var tieneShare = typeof navigator.share === 'function';
+  var tieneCanShare = typeof navigator.canShare === 'function';
+  var file = null;
+  try { file = new File([blob], filename, { type: mimeType || 'application/octet-stream' }); } catch(e){}
+  var puedeShareFile = false;
+  try { puedeShareFile = tieneCanShare && file && navigator.canShare({ files: [file] }); } catch(e){}
+
+  mostrarToast('share:' + tieneShare + ' canShare:' + tieneCanShare + ' file:' + puedeShareFile);
+  await new Promise(function(r){ setTimeout(r, 2600); }); // pausa para leer el toast
+
+  // Intento 1: compartir el archivo (menú nativo de Android)
+  if(tieneShare && puedeShareFile){
+    try {
+      await navigator.share({ files: [file], title: 'TrackVerse', text: '📊 ' + filename });
+      mostrarToast('Compartido ✓');
       return;
+    } catch(e){
+      if(e.name === 'AbortError') return;
+      mostrarToast('Share falló: ' + e.message);
+      await new Promise(function(r){ setTimeout(r, 2600); });
     }
-  } catch(e){
-    if(e.name === 'AbortError') return; // el usuario cerro el cuadro de compartir, no es error
-    console.warn('Share no disponible, uso descarga clasica:', e.message);
   }
 
-  // Fallback universal (funciona en Chrome de escritorio y celular)
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
-  mostrarToast('Archivo descargado ✓');
+  // Intento 2: descarga clásica (Chrome)
+  try {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+    mostrarToast('Intenté descarga clásica (a.click)');
+  } catch(e){
+    mostrarToast('Descarga clásica falló: ' + e.message);
+  }
 }
 
 // ===== Exportar con ExcelJS (incluye imágenes de gráficos) =====
