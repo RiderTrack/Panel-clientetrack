@@ -36,7 +36,7 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: Install Capacitor plugins (Filesystem + Share)
-        run: npm install @capacitor/filesystem @capacitor/share --legacy-peer-deps
+        run: npm install @capacitor/share --legacy-peer-deps
 
       - name: Prepare Web Assets
         run: |
