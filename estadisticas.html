@@ -9,6 +9,8 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <!-- Chart.js para gráficos profesionales -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- SheetJS para exportar Excel con estilos -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
   :root{
@@ -145,6 +147,25 @@
   .badge-estado.fallido{background:rgba(239,68,68,0.12); color:var(--red);}
   .badge-estado.pendiente{background:rgba(245,158,11,0.12); color:var(--amber);}
 
+  .badge-metodo{
+    display:inline-block; padding:3px 8px; border-radius:6px; font-size:0.68rem; font-weight:700;
+    white-space:nowrap;
+  }
+  .badge-metodo.green{background:rgba(16,185,129,0.12); color:var(--green);}
+  .badge-metodo.blue{background:rgba(0,82,255,0.12); color:var(--blue);}
+  .badge-metodo.amber{background:rgba(245,158,11,0.12); color:var(--amber);}
+  .badge-metodo.purple{background:rgba(124,58,237,0.12); color:var(--purple);}
+  .badge-metodo.cyan{background:rgba(6,182,212,0.12); color:var(--cyan);}
+  .badge-metodo.pink{background:rgba(236,72,153,0.12); color:var(--pink);}
+  .badge-metodo.gray{background:rgba(100,116,139,0.12); color:var(--muted);}
+
+  .btn-mini{
+    background:var(--card); border:1px solid var(--border); border-radius:12px;
+    width:40px; height:40px; font-size:0.95rem; cursor:pointer; color:var(--text);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .btn-mini:active{transform:scale(0.95);}
+
   /* ===== Escritorio — al final (regla de oro #3) ===== */
   @media (min-width: 700px){
     .kpis{grid-template-columns:repeat(4, 1fr);}
@@ -160,6 +181,9 @@
   <div class="top">
     <div class="top-row">
       <h1><i class="fa-solid fa-chart-line"></i> Estadísticas</h1>
+      <button class="btn-mini" onclick="exportarExcel()" title="Exportar Excel">
+        <i class="fa-solid fa-file-excel" style="color:#10B981;"></i>
+      </button>
     </div>
     <div class="periodos">
       <div class="p-chip activo" onclick="setPeriodo('hoy', this)">📅 Hoy</div>
@@ -225,16 +249,20 @@ var charts = {};    // referencias a Chart.js para poder destruirlos al cambiar 
 function cargarDatos(){
   var promises = [];
 
-  // 1. ruta_activa (día actual)
+  // 1. ruta_activa (día actual) — SOLO si está activa la ruta
   promises.push(db.collection('ruta_activa').doc(UID_BOT).get().then(function(doc){
     if(doc.exists){
       var d = doc.data();
-      var clientes = (d.clientes || []).map(function(c){
-        c._fecha = Date.now();
-        c._rutaActiva = true;
-        return c;
-      });
-      datos.rutas.push({ fecha: Date.now(), fechaId: 'hoy', clientes: clientes });
+      // Solo incluir si la ruta está marcada como activa
+      // (si la ruta ya se cerró, no duplicar con estadisticas_diarias)
+      if(d.activa !== false && d.clientes && d.clientes.length){
+        var clientes = d.clientes.map(function(c){
+          c._fecha = Date.now();
+          c._rutaActiva = true;
+          return c;
+        });
+        datos.rutas.push({ fecha: Date.now(), fechaId: 'hoy', clientes: clientes, _fuente: 'ruta_activa' });
+      }
     }
   }).catch(function(){}));
 
@@ -246,21 +274,28 @@ function cargarDatos(){
       datos.rutas.push({
         fecha: h.fechaTs || h.timestamp || Date.now(),
         fechaId: h.fechaId || '',
-        clientes: h.clientes || []
+        clientes: h.clientes || [],
+        _fuente: 'historial'
       });
     });
   }).catch(function(){}));
 
-  // 3. estadisticas_diarias (colección nueva — se alimenta desde RiderTrack al cerrar ruta)
+  // 3. estadisticas_diarias (colección nueva — alimentada por el vigilante)
+  // IMPORTANTE: deduplicar con ruta_activa si es el día de hoy
+  var fechaHoy = new Date().toISOString().slice(0,10);
   promises.push(db.collection('estadisticas_diarias').where('uid','==',UID_BOT).get().then(function(snap){
     snap.forEach(function(d){
       var s = d.data();
-      // Cada doc es un día: { uid, fechaId, clientes: [...], resumen: {...} }
+      // Si es de hoy Y ya tenemos ruta_activa, NO agregar (evita duplicación)
+      if(s.fechaId === fechaHoy && datos.rutas.some(function(r){ return r._fuente === 'ruta_activa'; })){
+        return; // saltar — ya está incluido desde ruta_activa
+      }
       if(s.clientes && s.clientes.length){
         datos.rutas.push({
           fecha: s.timestamp || Date.now(),
           fechaId: s.fechaId || '',
-          clientes: s.clientes
+          clientes: s.clientes,
+          _fuente: 'estadisticas'
         });
       }
     });
@@ -290,6 +325,11 @@ function aplanarYRender(){
       var clon = Object.assign({}, c);
       clon._fecha = r.fecha;
       clon._fechaId = r.fechaId;
+      // Si el cliente tiene marca temporal de pago (_tsPago), usarla como fecha
+      // para que la hora sea la real del pago, no la del snapshot
+      if(c._tsPago || c.tsPago){
+        clon._fecha = c._tsPago || c.tsPago;
+      }
       todos.push(clon);
     });
   });
@@ -426,6 +466,46 @@ function render(){
       h += '</tr>';
     });
     h += '</tbody></table>';
+    h += '</div>';
+  }
+
+  // ===== Tabla detallada de entregas =====
+  var entregadosDetallados = arr.filter(function(c){ return clasificarEstado(c.st) === 'entregado'; })
+    .sort(function(a,b){ return (b._fecha||0) - (a._fecha||0); });
+  if(entregadosDetallados.length > 0){
+    h += '<div class="card-chart" style="margin-top:14px;">';
+    h += '<h3><i class="fa-solid fa-list-check"></i> Detalle de entregas</h3>';
+    h += '<div class="sub">' + entregadosDetallados.length + ' pedidos entregados en el período · ordenados por más reciente</div>';
+    h += '<div style="overflow-x:auto;"><table class="tabla"><thead><tr>';
+    h += '<th>Fecha</th><th>Hora</th><th>Cliente</th><th>Producto</th><th>Distrito</th><th>Método</th><th class="num">Monto</th>';
+    h += '</tr></thead><tbody>';
+    entregadosDetallados.slice(0, 50).forEach(function(c){
+      var fecha = c._fecha ? new Date(c._fecha) : null;
+      var fechaStr = fecha ? fecha.toLocaleDateString('es-PE', {day:'2-digit', month:'2-digit'}) : '-';
+      var horaStr = fecha ? fecha.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'}) : '-';
+      var metodo = etiquetaPago(c.st);
+      var colorMetodo = {
+        'Yape Rudy': 'green',
+        'Yape Empresa': 'blue',
+        'Efectivo': 'amber',
+        'Mixto': 'purple',
+        'POS/Tarjeta': 'cyan',
+        'Transferencia': 'pink'
+      }[metodo] || 'gray';
+      h += '<tr>';
+      h += '<td style="font-size:0.78rem;">' + fechaStr + '</td>';
+      h += '<td style="font-size:0.78rem;color:var(--muted);">' + horaStr + '</td>';
+      h += '<td style="font-weight:600;font-size:0.82rem;">' + escapeHtml(c.nombre || 'Cliente') + '</td>';
+      h += '<td style="font-size:0.78rem;">' + escapeHtml(c.prod || '-') + '</td>';
+      h += '<td style="font-size:0.78rem;color:var(--muted);">' + escapeHtml(c.dist || '-') + '</td>';
+      h += '<td><span class="badge-metodo ' + colorMetodo + '">' + metodo + '</span></td>';
+      h += '<td class="num green">S/ ' + montoDe(c.cobrar).toFixed(2).replace(/\.00$/,'') + '</td>';
+      h += '</tr>';
+    });
+    h += '</tbody></table></div>';
+    if(entregadosDetallados.length > 50){
+      h += '<div style="text-align:center;padding:10px;color:var(--muted);font-size:0.78rem;">Mostrando 50 de ' + entregadosDetallados.length + ' · usa Excel para ver todos</div>';
+    }
     h += '</div>';
   }
 
@@ -621,19 +701,22 @@ function renderChartPagos(entregados){
   var metodos = {};
   entregados.forEach(function(c){
     var m = (c.st || 'otro');
-    var label;
-    if(m === 'efectivo') label = 'Efectivo';
-    else if(m.indexOf('yape') !== -1 || m.indexOf('plin') !== -1) label = 'Yape/Plin';
-    else if(m === 'pos') label = 'POS/Tarjeta';
-    else if(m === 'transferencia') label = 'Transferencia';
-    else if(m === 'mixto' || m === 'yape-efectivo') label = 'Mixto';
-    else if(m === 'empresa' || m === 'jose-smith') label = 'Empresa';
-    else label = 'Otro';
+    var label = etiquetaPago(m);
     metodos[label] = (metodos[label] || 0) + 1;
   });
   var labels = Object.keys(metodos);
   var data = labels.map(function(k){ return metodos[k]; });
-  var colores = ['#10B981','#0052FF','#7C3AED','#F59E0B','#06B6D4','#EC4899','#94A3B8'];
+  var colores = {
+    'Yape Rudy': '#10B981',
+    'Yape Empresa': '#0052FF',
+    'Efectivo': '#F59E0B',
+    'Mixto': '#7C3AED',
+    'POS/Tarjeta': '#06B6D4',
+    'Transferencia': '#EC4899',
+    'Yape/Plin': '#10B981',
+    'Otro': '#94A3B8'
+  };
+  var bgColors = labels.map(function(l){ return colores[l] || '#94A3B8'; });
 
   charts.pagos = new Chart(ctx, {
     type: 'doughnut',
@@ -641,7 +724,7 @@ function renderChartPagos(entregados){
       labels: labels,
       datasets: [{
         data: data,
-        backgroundColor: colores.slice(0, labels.length),
+        backgroundColor: bgColors,
         borderWidth: 0
       }]
     },
@@ -662,6 +745,22 @@ function renderChartPagos(entregados){
       }
     }
   });
+}
+
+// ===== Etiqueta legible de método de pago =====
+function etiquetaPago(st){
+  var m = (st || 'otro').toLowerCase();
+  if(m === 'efectivo') return 'Efectivo';
+  if(m === 'yape-rudy' || m === 'yape-rudy-efectivo') return 'Yape Rudy';
+  if(m === 'jose-smith' || m === 'empresa' || m === 'mate') return 'Yape Empresa';
+  if(m === 'yape-plin' || m === 'plin') return 'Yape/Plin';
+  if(m.indexOf('yape') !== -1 && m.indexOf('empresa') !== -1) return 'Yape Empresa';
+  if(m.indexOf('yape') !== -1 && m.indexOf('rudy') !== -1) return 'Yape Rudy';
+  if(m.indexOf('yape') !== -1 || m.indexOf('plin') !== -1) return 'Yape/Plin';
+  if(m === 'pos') return 'POS/Tarjeta';
+  if(m === 'transferencia') return 'Transferencia';
+  if(m === 'mixto' || m === 'yape-efectivo' || m === 'cambio') return 'Mixto';
+  return 'Otro';
 }
 
 // ===== Chart: Horas pico =====
@@ -726,6 +825,175 @@ function calcularTopClientes(arr){
   });
   return Object.keys(conteo).map(function(k){ return conteo[k]; })
     .sort(function(a,b){ return b.pedidos - a.pedidos; });
+}
+
+// ===== Exportar Excel con SheetJS =====
+function exportarExcel(){
+  var arr = filtrarPorPeriodo(datos.todos || []);
+  if(arr.length === 0){
+    mostrarToast('Sin datos para exportar');
+    return;
+  }
+  mostrarToast('Generando Excel...');
+
+  setTimeout(function(){
+    try {
+      var wb = XLSX.utils.book_new();
+
+      // ===== Hoja 1: Resumen =====
+      var entregados = arr.filter(function(c){ return clasificarEstado(c.st) === 'entregado'; });
+      var fallidos = arr.filter(function(c){ return clasificarEstado(c.st) === 'fallido'; });
+      var pendientes = arr.filter(function(c){ return clasificarEstado(c.st) === 'pendiente'; });
+      var montoTotal = entregados.reduce(function(s,c){ return s + montoDe(c.cobrar); }, 0);
+      var tasaExito = arr.length > 0 ? Math.round(entregados.length / arr.length * 100) : 0;
+
+      var resumenData = [
+        ['📊 ESTADÍSTICAS TRACKVERSE'],
+        ['Período:', periodoActual === 'hoy' ? 'Hoy' : periodoActual === '7d' ? 'Últimos 7 días' : periodoActual === '30d' ? 'Últimos 30 días' : 'Todo el historial'],
+        ['Generado:', new Date().toLocaleString('es-PE')],
+        [''],
+        ['MÉTRICA', 'VALOR'],
+        ['Total pedidos', arr.length],
+        ['Entregados', entregados.length],
+        ['Fallidos', fallidos.length],
+        ['Pendientes', pendientes.length],
+        ['Tasa de éxito', tasaExito + '%'],
+        ['Monto total cobrado', 'S/ ' + montoTotal.toFixed(2)],
+        ['Ticket promedio', 'S/ ' + (entregados.length > 0 ? (montoTotal/entregados.length).toFixed(2) : '0.00')],
+        ['']
+      ];
+
+      // Métodos de pago en el resumen
+      resumenData.push(['MÉTODOS DE PAGO']);
+      resumenData.push(['Método', 'Cantidad', 'Monto total']);
+      var metodosResumen = {};
+      entregados.forEach(function(c){
+        var label = etiquetaPago(c.st);
+        if(!metodosResumen[label]) metodosResumen[label] = { count: 0, monto: 0 };
+        metodosResumen[label].count++;
+        metodosResumen[label].monto += montoDe(c.cobrar);
+      });
+      Object.keys(metodosResumen).sort(function(a,b){ return metodosResumen[b].count - metodosResumen[a].count; }).forEach(function(m){
+        resumenData.push([m, metodosResumen[m].count, 'S/ ' + metodosResumen[m].monto.toFixed(2)]);
+      });
+
+      var ws1 = XLSX.utils.aoa_to_sheet(resumenData);
+      ws1['!cols'] = [{wch:25}, {wch:20}, {wch:15}];
+      // Estilo del título
+      if(ws1['A1']){
+        ws1['A1'].s = { font: { bold: true, sz: 16, color: { rgb: '0052FF' } } };
+      }
+      XLSX.utils.book_append_sheet(wb, ws1, 'Resumen');
+
+      // ===== Hoja 2: Detalle de entregas =====
+      var entregasData = [['Fecha', 'Hora', 'Cliente', 'Producto', 'Distrito', 'Dirección', 'Teléfono', 'Método de pago', 'Monto (S/)', 'Estado']];
+      var entregadosOrdenados = arr.slice().sort(function(a,b){ return (b._fecha||0) - (a._fecha||0); });
+      entregadosOrdenados.forEach(function(c){
+        var fecha = c._fecha ? new Date(c._fecha) : null;
+        entregasData.push([
+          fecha ? fecha.toLocaleDateString('es-PE') : '-',
+          fecha ? fecha.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'}) : '-',
+          c.nombre || 'Cliente',
+          c.prod || '-',
+          c.dist || '-',
+          c.dir || '-',
+          c.cel || '-',
+          etiquetaPago(c.st),
+          montoDe(c.cobrar).toFixed(2),
+          clasificarEstado(c.st)
+        ]);
+      });
+      var ws2 = XLSX.utils.aoa_to_sheet(entregasData);
+      ws2['!cols'] = [{wch:12}, {wch:8}, {wch:22}, {wch:25}, {wch:18}, {wch:30}, {wch:14}, {wch:14}, {wch:12}, {wch:12}];
+      XLSX.utils.book_append_sheet(wb, ws2, 'Detalle entregas');
+
+      // ===== Hoja 3: Top productos =====
+      var prodData = [['PRODUCTO', 'PEDIDOS ENTREGADOS', 'MONTO TOTAL (S/)']];
+      var prodConteo = {};
+      arr.forEach(function(c){
+        if(clasificarEstado(c.st) !== 'entregado') return;
+        var p = (c.prod || 'Sin nombre').trim() || 'Sin nombre';
+        if(!prodConteo[p]) prodConteo[p] = { count: 0, monto: 0 };
+        prodConteo[p].count++;
+        prodConteo[p].monto += montoDe(c.cobrar);
+      });
+      Object.keys(prodConteo).map(function(k){ return { nombre: k, count: prodConteo[k].count, monto: prodConteo[k].monto }; })
+        .sort(function(a,b){ return b.count - a.count; })
+        .forEach(function(p){
+          prodData.push([p.nombre, p.count, p.monto.toFixed(2)]);
+        });
+      var ws3 = XLSX.utils.aoa_to_sheet(prodData);
+      ws3['!cols'] = [{wch:30}, {wch:22}, {wch:18}];
+      XLSX.utils.book_append_sheet(wb, ws3, 'Top productos');
+
+      // ===== Hoja 4: Top distritos =====
+      var distData = [['DISTRITO', 'PEDIDOS', 'ENTREGADOS', 'TASA ÉXITO', 'MONTO TOTAL (S/)']];
+      var distConteo = {};
+      arr.forEach(function(c){
+        var d = (c.dist || 'Sin distrito').trim() || 'Sin distrito';
+        if(!distConteo[d]) distConteo[d] = { count: 0, entregados: 0, monto: 0 };
+        distConteo[d].count++;
+        if(clasificarEstado(c.st) === 'entregado'){
+          distConteo[d].entregados++;
+          distConteo[d].monto += montoDe(c.cobrar);
+        }
+      });
+      Object.keys(distConteo).map(function(k){ return Object.assign({nombre: k}, distConteo[k]); })
+        .sort(function(a,b){ return b.count - a.count; })
+        .forEach(function(d){
+          var tasa = d.count > 0 ? Math.round(d.entregados / d.count * 100) : 0;
+          distData.push([d.nombre, d.count, d.entregados, tasa + '%', d.monto.toFixed(2)]);
+        });
+      var ws4 = XLSX.utils.aoa_to_sheet(distData);
+      ws4['!cols'] = [{wch:25}, {wch:12}, {wch:14}, {wch:14}, {wch:18}];
+      XLSX.utils.book_append_sheet(wb, ws4, 'Top distritos');
+
+      // ===== Hoja 5: Top clientes =====
+      var cliData = [['CLIENTE', 'TELÉFONO', 'DISTRITO', 'PEDIDOS', 'MONTO TOTAL (S/)']];
+      calcularTopClientes(arr).forEach(function(c){
+        cliData.push([c.nombre, c.tel || '-', c.distrito || '-', c.pedidos, c.monto.toFixed(2)]);
+      });
+      var ws5 = XLSX.utils.aoa_to_sheet(cliData);
+      ws5['!cols'] = [{wch:25}, {wch:14}, {wch:18}, {wch:12}, {wch:18}];
+      XLSX.utils.book_append_sheet(wb, ws5, 'Top clientes');
+
+      // ===== Generar archivo =====
+      var fechaArchivo = new Date().toISOString().slice(0,10);
+      var nombreArchivo = 'Estadisticas-TrackVerse-' + fechaArchivo + '.xlsx';
+
+      // Intentar Web Share API primero (en APK)
+      var blob = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      var file = new File([blob], nombreArchivo, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      if(navigator.canShare && navigator.canShare({ files: [file] })){
+        navigator.share({
+          files: [file],
+          title: 'Estadísticas TrackVerse',
+          text: '📊 Estadísticas del ' + fechaArchivo
+        }).then(function(){
+          mostrarToast('Excel compartido ✓');
+        }).catch(function(e){
+          if(e.name !== 'AbortError') descargarExcel(blob, nombreArchivo);
+        });
+      } else {
+        descargarExcel(blob, nombreArchivo);
+      }
+    } catch(e){
+      mostrarToast('Error: ' + e.message);
+      console.error(e);
+    }
+  }, 100);
+}
+
+function descargarExcel(blob, filename){
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  mostrarToast('Excel descargado ✓');
 }
 
 // ===== Iniciar =====
