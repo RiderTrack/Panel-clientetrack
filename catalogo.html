@@ -7,6 +7,9 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<!-- jsPDF + html2canvas para generar PDF sin window.print() (que no funciona en Android WebView) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
   :root{
@@ -182,6 +185,49 @@
   .btn.wa{background:linear-gradient(135deg,#10B981,#059669); color:#fff;}
   .btn.wa-share{background:linear-gradient(135deg,#25D366,#128C7E); color:#fff; box-shadow:0 4px 14px rgba(37,211,102,0.3);}
 
+  /* Vista previa de descripción en editor */
+  .desc-hint{font-size:0.68rem; color:var(--muted); margin-top:5px; line-height:1.4;}
+  .desc-hint code{background:rgba(0,82,255,0.08); color:var(--blue); padding:1px 5px; border-radius:4px; font-size:0.85em;}
+  .preview-desc{
+    background:#FAFBFC; border:1px solid var(--border); border-radius:12px; padding:12px 14px;
+    font-size:0.82rem; line-height:1.6; min-height:60px; max-height:200px; overflow-y:auto;
+    white-space:pre-wrap; word-wrap:break-word;
+  }
+  .preview-desc b{font-weight:700; color:var(--text);}
+  .preview-desc i{font-style:italic;}
+  .preview-desc s{text-decoration:line-through; opacity:0.7;}
+  .preview-desc mark{background:#FEF3C7; color:#92400E; padding:1px 4px; border-radius:3px; font-weight:600;}
+  .preview-desc code{font-family:'Courier New',monospace; background:#E2E8F0; color:#0F172A; padding:1px 5px; border-radius:3px; font-size:0.85em;}
+  .preview-desc ul{margin:4px 0 0; padding-left:18px; list-style:disc;}
+  .preview-desc ol{margin:4px 0 0; padding-left:18px; list-style:decimal;}
+  .preview-desc li{margin-bottom:2px;}
+  .preview-desc p{margin:0 0 6px;}
+  .preview-desc p:last-child{margin-bottom:0;}
+  .preview-desc h4{margin:8px 0 4px; font-size:0.88rem; font-weight:800; color:var(--text); padding-bottom:2px; border-bottom:1px solid var(--border);}
+  .preview-desc blockquote{margin:6px 0; padding:6px 12px; background:rgba(0,82,255,0.05); border-left:3px solid var(--blue); color:var(--muted); font-style:italic;}
+  .preview-desc hr{border:none; border-top:1px dashed var(--border); margin:8px 0;}
+
+  /* Botón flotante: Configuración de tienda */
+  .cfg-tienda-fab{
+    position:fixed; bottom:18px; right:16px; z-index:90;
+    background:linear-gradient(135deg,var(--purple),var(--blue)); color:#fff;
+    width:50px; height:50px; border-radius:16px; border:none; cursor:pointer;
+    font-size:1.2rem; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 6px 20px rgba(124,58,237,0.4);
+  }
+  .cfg-tienda-fab:active{transform:scale(0.92);}
+  .cfg-section{margin-bottom:18px; padding-bottom:14px; border-bottom:1px dashed var(--border);}
+  .cfg-section:last-child{border-bottom:none;}
+  .cfg-section h3{margin:0 0 12px; font-size:0.95rem; color:var(--purple); display:flex; align-items:center; gap:8px;}
+  .cfg-colors{display:grid; grid-template-columns:repeat(6, 1fr); gap:10px;}
+  .cfg-color{width:100%; aspect-ratio:1/1; border-radius:10px; cursor:pointer; border:3px solid transparent; transition:all .15s;}
+  .cfg-color.sel{border-color:var(--text); transform:scale(1.08); box-shadow:0 4px 12px rgba(0,0,0,0.15);}
+  .cfg-logo-zone{
+    border:2px dashed var(--border); border-radius:14px; padding:12px; text-align:center;
+    cursor:pointer; color:var(--muted); font-size:0.78rem;
+  }
+  .cfg-logo-zone img{max-width:80px; max-height:80px; border-radius:10px; display:block; margin:0 auto 6px;}
+
   /* Enviar: lista de clientes */
   .cli-lista{max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:14px; margin-bottom:12px;}
   .cli-item{display:flex; align-items:center; gap:10px; padding:10px 13px; border-bottom:1px solid #F1F5F9; cursor:pointer; font-size:0.85rem;}
@@ -316,7 +362,23 @@
         <div class="campo"><label>Precio S/</label><input id="pPrecio" type="number" inputmode="decimal" placeholder="99.90"></div>
         <div class="campo"><label>Categoría</label><input id="pCategoria" list="cats" placeholder="Ej: Salud"><datalist id="cats"></datalist></div>
       </div>
-      <div class="campo"><label>Descripción (opcional)</label><textarea id="pDesc" placeholder="Detalles, beneficios, tallas..."></textarea></div>
+      <div class="campo">
+        <label>📝 Descripción para el PDF (opcional)</label>
+        <textarea id="pDesc" placeholder="Detalles, beneficios, tallas... Usa *negritas* y una línea por beneficio." oninput="actualizarPreviewDesc()" style="min-height:90px;"></textarea>
+        <div class="desc-hint">
+          💡 Formatos: <code>*negrita*</code> · <code>_cursiva_</code> · <code>~tachado~</code> · <code>==resaltado==</code> · <code>`código`</code><br>
+          📋 Listas: <code>- viñeta</code> · <code>1. numerada</code> · <code>## subtítulo</code> · <code>&gt; cita</code> · <code>---</code> separador
+        </div>
+      </div>
+      <div class="campo">
+        <label>👁️ Vista previa PDF</label>
+        <div class="preview-desc" id="previewDesc" data-placeholder="Escribe algo arriba para ver la vista previa...">Escribe algo arriba para ver la vista previa...</div>
+      </div>
+      <div class="campo">
+        <label>💬 Descripción corta para WhatsApp (opcional)</label>
+        <textarea id="pDescCorta" placeholder="Versión breve para WhatsApp. Si la dejas vacía, se usa un resumen automático." style="min-height:50px;"></textarea>
+        <div class="desc-hint">✨ Esto es lo que se manda por WhatsApp. Máximo recomendado: 1-2 líneas.</div>
+      </div>
       <div class="fila-2">
         <div class="campo"><label>Estado</label>
           <select id="pEstado">
@@ -375,6 +437,98 @@
 
   <!-- Zona de impresión (catálogo PDF) -->
   <div class="solo-print" id="zonaPrint"></div>
+
+  <!-- Botón flotante: Configuración de tienda -->
+  <button class="cfg-tienda-fab" onclick="abrirConfigTienda()" title="Configurar tienda">
+    <i class="fa-solid fa-store"></i>
+  </button>
+
+  <!-- Modal: Configuración de tienda -->
+  <div class="modal-back" id="mConfigTienda" onclick="if(event.target===this)cerrar('mConfigTienda')">
+    <div class="hoja">
+      <div class="grab"></div>
+      <h2><i class="fa-solid fa-store" style="color:var(--purple);"></i> Configurar tienda</h2>
+      <p style="font-size:0.78rem; color:var(--muted); margin:0 0 16px;">Esta información aparece en el catálogo PDF y en los mensajes de WhatsApp. Configúrala una sola vez y se guarda para todos tus productos.</p>
+
+      <div class="cfg-section">
+        <h3>🏪 Identidad de la tienda</h3>
+        <div class="campo">
+          <label>Nombre de la tienda</label>
+          <input id="cfgNombre" placeholder="Ej: Tiendas MATE">
+        </div>
+        <div class="campo">
+          <label>Eslogan / subtítulo (opcional)</label>
+          <input id="cfgEslogan" placeholder="Ej: Productos ortopédicos y de salud">
+        </div>
+        <div class="campo">
+          <label>Logo de la tienda (opcional)</label>
+          <div class="cfg-logo-zone" id="cfgLogoZone" onclick="document.getElementById('cfgLogoInput').click()">
+            <i class="fa-solid fa-image"></i><br>Toca para subir logo<br><span style="font-size:0.66rem;">(se comprime automáticamente)</span>
+          </div>
+          <input type="file" id="cfgLogoInput" accept="image/*" style="display:none;">
+        </div>
+        <div class="campo">
+          <label>Color de marca (para el PDF)</label>
+          <div class="cfg-colors" id="cfgColors"></div>
+        </div>
+      </div>
+
+      <div class="cfg-section">
+        <h3>📞 Contacto</h3>
+        <div class="fila-2">
+          <div class="campo">
+            <label>WhatsApp / Teléfono</label>
+            <input id="cfgTelefono" placeholder="907 565 569">
+          </div>
+          <div class="campo">
+            <label>Página web (opcional)</label>
+            <input id="cfgWeb" placeholder="www.tutienda.com">
+          </div>
+        </div>
+        <div class="fila-2">
+          <div class="campo">
+            <label>Instagram (opcional)</label>
+            <input id="cfgInstagram" placeholder="@tu_tienda">
+          </div>
+          <div class="campo">
+            <label>Facebook (opcional)</label>
+            <input id="cfgFacebook" placeholder="facebook.com/tutienda">
+          </div>
+        </div>
+      </div>
+
+      <div class="cfg-section">
+        <h3>💳 Pagos</h3>
+        <div class="fila-2">
+          <div class="campo">
+            <label>Yape / Plin número</label>
+            <input id="cfgYapeNum" placeholder="980 811 297">
+          </div>
+          <div class="campo">
+            <label>Yape / Plin titular</label>
+            <input id="cfgYapeTitular" placeholder="Lorenzo N. Tarazona T.">
+          </div>
+        </div>
+        <div class="campo">
+          <label>Cuenta bancaria (opcional)</label>
+          <input id="cfgBanco" placeholder="BCP Soles: 194-1234567890-0-12">
+        </div>
+      </div>
+
+      <div class="cfg-section">
+        <h3>🚚 Envío</h3>
+        <div class="campo">
+          <label>Mensaje de envío</label>
+          <input id="cfgEnvio" placeholder="Entrega a domicilio en Lima Metropolitana">
+        </div>
+      </div>
+
+      <div class="hoja-btns">
+        <button class="btn sec" onclick="cerrar('mConfigTienda')">Cancelar</button>
+        <button class="btn pri" onclick="guardarConfigTienda()"><i class="fa-solid fa-floppy-disk"></i> Guardar tienda</button>
+      </div>
+    </div>
+  </div>
 
   <div class="toast" id="toast"></div>
 
@@ -444,6 +598,244 @@ var cliSeleccionado = null;
 var ofertaActiva = false;
 var destacadoActivo = false;
 
+// ===== Configuración de tienda (Firebase + fallback localStorage) =====
+var configTienda = {
+  nombre: 'TrackVerse',
+  eslogan: '',
+  logo: '',
+  color: '#0052FF',
+  telefono: '907 565 569',
+  web: '',
+  instagram: '',
+  facebook: '',
+  yapeNum: '980 811 297',
+  yapeTitular: 'Lorenzo N. Tarazona T.',
+  banco: '',
+  envio: 'Entrega a domicilio · 🏪 Tiendas MATE'
+};
+
+var COLORES_TIENDA = ['#0052FF','#7C3AED','#10B981','#F59E0B','#EF4444','#0EA5E9','#EC4899','#14B8A6','#F97316','#6366F1','#84CC16','#06B6D4'];
+
+// Cargar configTienda desde Firebase (con fallback a localStorage)
+function cargarConfigTienda(){
+  // Intentar Firebase primero
+  db.collection('configuracion').doc('tienda_' + UID_BOT).get().then(function(doc){
+    if(doc.exists){
+      var data = doc.data();
+      Object.keys(data).forEach(function(k){ configTienda[k] = data[k]; });
+    }
+    // Hacer merge con localStorage (por si hay datos locales más nuevos)
+    var local = localStorage.getItem('cfg_tienda');
+    if(local){
+      try{
+        var localData = JSON.parse(local);
+        if(localData._updatedAt && (!data || localData._updatedAt > (data.actualizado||0))){
+          Object.keys(localData).forEach(function(k){ if(k !== '_updatedAt') configTienda[k] = localData[k]; });
+        }
+      }catch(e){}
+    }
+    renderCfgColors();
+  }).catch(function(e){
+    // Si Firebase falla, usar solo localStorage
+    var local = localStorage.getItem('cfg_tienda');
+    if(local){
+      try{
+        var localData = JSON.parse(local);
+        Object.keys(localData).forEach(function(k){ if(k !== '_updatedAt') configTienda[k] = localData[k]; });
+      }catch(e){}
+    }
+    renderCfgColors();
+  });
+}
+
+function guardarConfigTienda(){
+  var data = {
+    nombre: document.getElementById('cfgNombre').value.trim() || 'TrackVerse',
+    eslogan: document.getElementById('cfgEslogan').value.trim(),
+    logo: configTienda.logo || '',
+    color: configTienda.color || '#0052FF',
+    telefono: document.getElementById('cfgTelefono').value.trim(),
+    web: document.getElementById('cfgWeb').value.trim(),
+    instagram: document.getElementById('cfgInstagram').value.trim(),
+    facebook: document.getElementById('cfgFacebook').value.trim(),
+    yapeNum: document.getElementById('cfgYapeNum').value.trim(),
+    yapeTitular: document.getElementById('cfgYapeTitular').value.trim(),
+    banco: document.getElementById('cfgBanco').value.trim(),
+    envio: document.getElementById('cfgEnvio').value.trim(),
+    actualizado: Date.now()
+  };
+  // Actualizar estado local
+  Object.keys(data).forEach(function(k){ configTienda[k] = data[k]; });
+  // Guardar en localStorage (inmediato, sin esperar Firebase)
+  var localData = JSON.parse(JSON.stringify(data));
+  localData._updatedAt = data.actualizado;
+  localStorage.setItem('cfg_tienda', JSON.stringify(localData));
+  // Guardar en Firebase
+  db.collection('configuracion').doc('tienda_' + UID_BOT).set(data, { merge: true }).then(function(){
+    mostrarToast('Configuración de tienda guardada ✓');
+    cerrar('mConfigTienda');
+  }).catch(function(e){
+    mostrarToast('Guardado local (Firebase falló): ' + e.message);
+    cerrar('mConfigTienda');
+  });
+}
+
+function abrirConfigTienda(){
+  document.getElementById('cfgNombre').value = configTienda.nombre || '';
+  document.getElementById('cfgEslogan').value = configTienda.eslogan || '';
+  document.getElementById('cfgTelefono').value = configTienda.telefono || '';
+  document.getElementById('cfgWeb').value = configTienda.web || '';
+  document.getElementById('cfgInstagram').value = configTienda.instagram || '';
+  document.getElementById('cfgFacebook').value = configTienda.facebook || '';
+  document.getElementById('cfgYapeNum').value = configTienda.yapeNum || '';
+  document.getElementById('cfgYapeTitular').value = configTienda.yapeTitular || '';
+  document.getElementById('cfgBanco').value = configTienda.banco || '';
+  document.getElementById('cfgEnvio').value = configTienda.envio || '';
+  // Logo
+  if(configTienda.logo){
+    document.getElementById('cfgLogoZone').innerHTML = '<img src="' + configTienda.logo + '" alt=""><br><span style="font-size:0.66rem;">Toca para cambiar</span>';
+  } else {
+    document.getElementById('cfgLogoZone').innerHTML = '<i class="fa-solid fa-image"></i><br>Toca para subir logo<br><span style="font-size:0.66rem;">(se comprime automáticamente)</span>';
+  }
+  renderCfgColors();
+  document.getElementById('mConfigTienda').classList.add('show');
+}
+
+function renderCfgColors(){
+  var h = '';
+  COLORES_TIENDA.forEach(function(c){
+    h += '<div class="cfg-color' + (configTienda.color === c ? ' sel' : '') + '" style="background:' + c + '" onclick="selColor(\'' + c + '\')" data-color="' + c + '"></div>';
+  });
+  document.getElementById('cfgColors').innerHTML = h;
+}
+function selColor(c){
+  configTienda.color = c;
+  renderCfgColors();
+}
+
+// Logo upload (compresión igual que foto de producto)
+document.getElementById('cfgLogoInput').addEventListener('change', function(){
+  var file = this.files && this.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var img = new Image();
+    img.onload = function(){
+      var MAX = 200;
+      var w = img.width, hh = img.height;
+      if(w > MAX || hh > MAX){
+        if(w > hh){ hh = Math.round(hh * MAX / w); w = MAX; }
+        else { w = Math.round(w * MAX / hh); hh = MAX; }
+      }
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = hh;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, hh);
+      var out = canvas.toDataURL('image/png');
+      if(out.length > 100000) out = canvas.toDataURL('image/jpeg', 0.85);
+      configTienda.logo = out;
+      document.getElementById('cfgLogoZone').innerHTML = '<img src="' + out + '" alt=""><br><span style="font-size:0.66rem;">Toca para cambiar</span>';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+// ===== Formatear descripción con negritas y listas =====
+// Sintaxis soportada (estilo WhatsApp + Markdown simple):
+//   *texto*        → negritas
+//   _texto_        → cursiva (itálica)
+//   ~texto~        → tachado
+//   ==texto==      → resaltado amarillo (highlight)
+//   `código`       → monospace con fondo gris
+//   - item         → lista con viñetas
+//   1. item        → lista numerada
+//   ## Título      → subtítulo dentro de la descripción
+//   > cita         → cita destacada (blockquote)
+//   ---            → separador horizontal
+//   línea en blanco → separa párrafos
+function formatearDescHTML(txt){
+  if(!txt) return '';
+  var t = escapeHtml(txt);
+  // Separar por líneas en blanco = párrafos
+  var parrafos = t.split(/\n\s*\n/);
+  var html = '';
+  parrafos.forEach(function(p){
+    var lineas = p.split('\n');
+    // Detectar tipo de bloque
+    var esLista = lineas.every(function(l){ return l.trim().startsWith('-') || l.trim() === ''; });
+    var esListaNum = lineas.every(function(l){ return /^\d+\.\s/.test(l.trim()) || l.trim() === ''; });
+    var esCita = lineas.every(function(l){ return l.trim().startsWith('>') || l.trim() === ''; });
+    var esSeparador = lineas.length === 1 && lineas[0].trim() === '---';
+    var esSubtitulo = lineas.length === 1 && lineas[0].trim().startsWith('##');
+
+    if(esSeparador){
+      html += '<hr>';
+    } else if(esSubtitulo){
+      var subtitulo = lineas[0].trim().replace(/^##\s*/, '');
+      subtitulo = aplicarInline(subtitulo);
+      html += '<h4>' + subtitulo + '</h4>';
+    } else if(esLista && lineas.some(function(l){ return l.trim().startsWith('-'); })){
+      html += '<ul>';
+      lineas.forEach(function(l){
+        var contenido = l.trim().replace(/^-\s*/, '');
+        if(contenido){
+          contenido = aplicarInline(contenido);
+          html += '<li>' + contenido + '</li>';
+        }
+      });
+      html += '</ul>';
+    } else if(esListaNum && lineas.some(function(l){ return /^\d+\.\s/.test(l.trim()); })){
+      html += '<ol>';
+      lineas.forEach(function(l){
+        var contenido = l.trim().replace(/^\d+\.\s*/, '');
+        if(contenido){
+          contenido = aplicarInline(contenido);
+          html += '<li>' + contenido + '</li>';
+        }
+      });
+      html += '</ol>';
+    } else if(esCita && lineas.some(function(l){ return l.trim().startsWith('>'); })){
+      var citaCont = lineas.map(function(l){ return l.trim().replace(/^>\s*/, ''); }).filter(function(l){ return l; }).join(' ');
+      citaCont = aplicarInline(citaCont);
+      html += '<blockquote>' + citaCont + '</blockquote>';
+    } else {
+      // Párrafo normal
+      var contenido = aplicarInline(p);
+      html += '<p>' + contenido.replace(/\n/g, '<br>') + '</p>';
+    }
+  });
+  return html;
+}
+
+// Aplica formatos inline: negritas, cursiva, tachado, highlight, código
+function aplicarInline(txt){
+  var t = txt;
+  // Importante: el orden importa. Highlight y código primero (delimitadores dobles/únicos)
+  // ==resaltado== → <mark>
+  t = t.replace(/==([^=]+)==/g, '<mark>$1</mark>');
+  // `código` → <code>
+  t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // *negritas* → <b>
+  t = t.replace(/\*([^*]+)\*/g, '<b>$1</b>');
+  // _cursiva_ → <i>
+  t = t.replace(/_([^_]+)_/g, '<i>$1</i>');
+  // ~tachado~ → <s>
+  t = t.replace(/~([^~]+)~/g, '<s>$1</s>');
+  return t;
+}
+
+// Vista previa en vivo mientras escribes
+function actualizarPreviewDesc(){
+  var txt = document.getElementById('pDesc').value;
+  var html = formatearDescHTML(txt);
+  var prev = document.getElementById('previewDesc');
+  if(html){
+    prev.innerHTML = html;
+  } else {
+    prev.innerHTML = '<span style="color:var(--muted);font-style:italic;">Escribe algo arriba para ver la vista previa...</span>';
+  }
+}
+
 // ===== Cargar productos en vivo =====
 db.collection('catalogo_productos').onSnapshot(function(snap){
   productos = {};
@@ -453,6 +845,9 @@ db.collection('catalogo_productos').onSnapshot(function(snap){
   });
   render();
 }, function(e){ console.warn('catalogo:', e.message); });
+
+// Cargar configuración de tienda al iniciar
+cargarConfigTienda();
 
 // ===== Cargar clientes (para el modal de enviar) =====
 db.collection('ruta_activa').doc(UID_BOT).onSnapshot(function(doc){
@@ -640,10 +1035,13 @@ function abrirEditor(id){
   document.getElementById('pPrecio').value = p ? (p.precio||'') : '';
   document.getElementById('pCategoria').value = p ? (p.categoria||'') : '';
   document.getElementById('pDesc').value = p ? (p.desc||'') : '';
+  document.getElementById('pDescCorta').value = p ? (p.descCorta||'') : '';
   document.getElementById('pEstado').value = p ? (p.estado||'activo') : 'activo';
   document.getElementById('pSku').value = p ? (p.sku||'') : '';
   document.getElementById('pPrecioOferta').value = p ? (p.precioOferta||'') : '';
   document.getElementById('pDescuento').value = '';
+  // Actualizar vista previa de descripción
+  actualizarPreviewDesc();
   // Switches
   if(p && p.oferta && p.precioOferta){
     ofertaActiva = true;
@@ -674,6 +1072,7 @@ function guardarProducto(){
     precio: precio,
     categoria: document.getElementById('pCategoria').value.trim(),
     desc: document.getElementById('pDesc').value.trim(),
+    descCorta: document.getElementById('pDescCorta').value.trim(),
     estado: document.getElementById('pEstado').value,
     sku: document.getElementById('pSku').value.trim(),
     fotoBase64: fotoActual || '',
@@ -728,7 +1127,14 @@ function mensajeDe(p, nombreCli){
   m += 'Te comparto este producto:\n\n';
   m += '📦 *' + (p.nombre||'') + '*\n';
   if(p.sku) m += '🔖 SKU: `' + p.sku + '`\n';
-  if(p.desc) m += '_' + p.desc + '_\n';
+  // Usar descripción corta si existe, si no un resumen automático de la larga
+  var descCorta = p.descCorta;
+  if(!descCorta && p.desc){
+    // Resumen automático: primera línea, máximo 80 chars
+    descCorta = p.desc.split('\n')[0].replace(/\*([^*]+)\*/g, '$1').replace(/^-\s*/, '');
+    if(descCorta.length > 80) descCorta = descCorta.substring(0, 77) + '...';
+  }
+  if(descCorta) m += '_' + descCorta + '_\n';
   m += '\n';
   if(tieneOferta){
     m += '💰 Precio normal: ~S/ ' + parseFloat(p.precio).toFixed(2) + '~\n';
@@ -846,7 +1252,7 @@ function enviarWAConImagen(){
   }
 }
 
-// ===== Catálogo PDF (impresión nativa → Guardar como PDF) =====
+// ===== Catálogo PDF con jsPDF (funciona en Android WebView, sin window.print) =====
 function imprimirCatalogo(){
   var arr = Object.keys(productos).map(function(k){ return productos[k]; })
     .filter(function(p){ return (p.estado||'activo') !== 'oculto'; });
@@ -861,16 +1267,32 @@ function imprimirCatalogo(){
   });
 
   if(!arr.length){ mostrarToast('No hay productos para el catálogo'); return; }
+  mostrarToast('Generando PDF... ⏳');
 
   var fecha = new Date().toLocaleDateString('es-PE', {day:'2-digit', month:'long', year:'numeric'});
   var hora = new Date().toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
 
-  // Portada
-  var h = '<div class="print-portada">';
-  h += '<div class="logo">🛍️</div>';
-  h += '<h1>Catálogo TrackVerse</h1>';
-  h += '<p class="fecha">Actualizado: ' + fecha + ' · ' + hora + '</p>';
-  h += '<p>' + arr.length + ' productos · Tiendas MATE</p>';
+  // Color de marca (de configuración de tienda)
+  var colorMarca = configTienda.color || '#0052FF';
+
+  // Construir HTML del catálogo en un div temporal oculto fuera de pantalla
+  var div = document.createElement('div');
+  div.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;padding:30px;font-family:Inter,sans-serif;color:#0F172A;';
+
+  var h = '';
+  // Portada con logo + nombre + eslogan de la tienda
+  h += '<div style="text-align:center;padding:20px 0 22px;border-bottom:3px solid ' + colorMarca + ';margin-bottom:24px;">';
+  if(configTienda.logo){
+    h += '<img src="' + configTienda.logo + '" style="max-width:90px;max-height:90px;margin-bottom:8px;" crossorigin="anonymous">';
+  } else {
+    h += '<div style="font-size:48px;margin-bottom:6px;">🛍️</div>';
+  }
+  h += '<h1 style="margin:0 0 4px;font-size:32px;color:' + colorMarca + ';font-weight:900;letter-spacing:-0.5px;">' + escapeHtml(configTienda.nombre || 'Catálogo') + '</h1>';
+  if(configTienda.eslogan){
+    h += '<p style="margin:0 0 8px;font-size:14px;color:#555;font-style:italic;">' + escapeHtml(configTienda.eslogan) + '</p>';
+  }
+  h += '<p style="margin:2px 0;font-size:13px;color:#555;"><b>Actualizado:</b> ' + fecha + ' · ' + hora + '</p>';
+  h += '<p style="margin:2px 0;font-size:13px;color:#555;">' + arr.length + ' productos disponibles</p>';
   h += '</div>';
 
   // Agrupar por categoría
@@ -882,54 +1304,141 @@ function imprimirCatalogo(){
   });
 
   Object.keys(cats).sort().forEach(function(c){
-    h += '<div class="print-cat-head">' + escapeHtml(c) + ' (' + cats[c].length + ')</div>';
-    h += '<div class="print-grid">';
+    h += '<div style="background:' + colorMarca + ';color:#fff;padding:8px 14px;border-radius:8px;margin:18px 0 12px;font-size:16px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;">' + escapeHtml(c) + ' (' + cats[c].length + ')</div>';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">';
     cats[c].forEach(function(p){
       var est = p.estado || 'activo';
       var tieneOferta = p.oferta && p.precioOferta && parseFloat(p.precioOferta) < parseFloat(p.precio);
-      h += '<div class="print-item ' + est + (p.destacado ? ' destacado' : '') + '">';
-      // Badges en la imagen
-      var badges = '';
-      if(tieneOferta) badges += '<div class="print-badge-pdf oferta">🔥 OFERTA</div>';
-      else if(p.destacado) badges += '<div class="print-badge-pdf destacado">⭐ TOP</div>';
-      if(est === 'agotado') badges += '<div class="print-badge-pdf agotado" style="left:8px;right:auto;">AGOTADO</div>';
-      if(est === 'proximo') badges += '<div class="print-badge-pdf agotado" style="background:#0052FF;left:8px;right:auto;">PRÓXIMO</div>';
+      h += '<div style="border:1px solid #ddd;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;background:#fff;' + (p.destacado ? 'border:2px solid #F59E0B;' : '') + '">';
       // Imagen
-      h += '<div class="print-img-wrap">';
-      if(p.fotoBase64) h += '<img src="' + p.fotoBase64 + '" alt="">';
-      else h += '<div class="print-img-ph">📦</div>';
-      h += badges;
+      h += '<div style="position:relative;width:100%;height:180px;background:#F1F5F9;overflow:hidden;">';
+      if(p.fotoBase64) h += '<img src="' + p.fotoBase64 + '" style="width:100%;height:100%;object-fit:cover;display:block;" crossorigin="anonymous">';
+      else h += '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:48px;color:#94A3B8;">📦</div>';
+      // Badges
+      if(tieneOferta) h += '<div style="position:absolute;top:8px;right:8px;background:#DC2626;color:#fff;font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;text-transform:uppercase;">🔥 OFERTA</div>';
+      else if(p.destacado) h += '<div style="position:absolute;top:8px;right:8px;background:#F59E0B;color:#78350F;font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;text-transform:uppercase;">⭐ TOP</div>';
+      if(est === 'agotado') h += '<div style="position:absolute;top:8px;left:8px;background:#7F1D1D;color:#fff;font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;text-transform:uppercase;">AGOTADO</div>';
+      if(est === 'proximo') h += '<div style="position:absolute;top:8px;left:8px;background:' + colorMarca + ';color:#fff;font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;text-transform:uppercase;">PRÓXIMO</div>';
       h += '</div>';
       // Body
-      h += '<div class="pi-body">';
-      h += '<div class="pi-cat">' + escapeHtml(p.categoria||'') + '</div>';
-      h += '<div class="pi-nombre">' + escapeHtml(p.nombre||'') + '</div>';
-      if(p.desc) h += '<div class="pi-desc">' + escapeHtml(p.desc) + '</div>';
-      h += '<div class="pi-precios">';
+      h += '<div style="padding:10px 12px 12px;flex:1;display:flex;flex-direction:column;">';
+      if(p.categoria) h += '<div style="font-size:10px;color:#7C3AED;text-transform:uppercase;font-weight:800;letter-spacing:0.5px;margin-bottom:3px;">' + escapeHtml(p.categoria) + '</div>';
+      h += '<div style="font-size:15px;font-weight:800;color:#0F172A;line-height:1.25;margin-bottom:6px;">' + escapeHtml(p.nombre||'') + '</div>';
+      // Descripción formateada (con negritas, listas, etc.)
+      if(p.desc){
+        var descHTML = formatearDescHTML(p.desc);
+        // Aplicar estilos inline porque html2canvas los necesita
+        descHTML = descHTML.replace(/<p>/g, '<p style="margin:0 0 4px;font-size:11px;color:#475569;line-height:1.4;">');
+        descHTML = descHTML.replace(/<ul>/g, '<ul style="margin:4px 0 4px;padding-left:18px;font-size:11px;color:#475569;line-height:1.4;list-style:disc;">');
+        descHTML = descHTML.replace(/<ol>/g, '<ol style="margin:4px 0 4px;padding-left:18px;font-size:11px;color:#475569;line-height:1.4;list-style:decimal;">');
+        descHTML = descHTML.replace(/<li>/g, '<li style="margin-bottom:2px;">');
+        descHTML = descHTML.replace(/<b>/g, '<b style="color:#0F172A;font-weight:700;">');
+        descHTML = descHTML.replace(/<i>/g, '<i style="color:#475569;font-style:italic;">');
+        descHTML = descHTML.replace(/<s>/g, '<s style="color:#94A3B8;text-decoration:line-through;">');
+        descHTML = descHTML.replace(/<mark>/g, '<mark style="background:#FEF3C7;color:#92400E;padding:1px 4px;border-radius:3px;font-weight:600;">');
+        descHTML = descHTML.replace(/<code>/g, '<code style="font-family:Courier New,monospace;background:#E2E8F0;color:#0F172A;padding:1px 5px;border-radius:3px;font-size:0.9em;">');
+        descHTML = descHTML.replace(/<h4>/g, '<h4 style="margin:8px 0 4px;font-size:12px;font-weight:800;color:#0F172A;padding-bottom:2px;border-bottom:1px solid #E2E8F0;">');
+        descHTML = descHTML.replace(/<blockquote>/g, '<blockquote style="margin:6px 0;padding:6px 10px;background:#F0F7FF;border-left:3px solid ' + colorMarca + ';color:#475569;font-style:italic;font-size:11px;">');
+        descHTML = descHTML.replace(/<hr>/g, '<hr style="border:none;border-top:1px dashed #CBD5E1;margin:8px 0;">');
+        h += '<div style="margin-bottom:6px;">' + descHTML + '</div>';
+      }
+      h += '<div style="margin-top:auto;">';
       if(tieneOferta){
-        h += '<div class="pi-precio-oferta">Antes: S/ ' + parseFloat(p.precio).toFixed(2) + '</div>';
-        h += '<div class="pi-precio oferta">S/ ' + parseFloat(p.precioOferta).toFixed(2) + '</div>';
-        h += '<div class="pi-ahorro">' + ahorroTxt(p.precio, p.precioOferta) + '</div>';
+        h += '<div style="font-size:11px;color:#94A3B8;text-decoration:line-through;">Antes: S/ ' + parseFloat(p.precio).toFixed(2) + '</div>';
+        h += '<div style="font-size:18px;font-weight:900;color:#DC2626;">S/ ' + parseFloat(p.precioOferta).toFixed(2) + '</div>';
+        h += '<div style="font-size:10px;font-weight:700;color:#F59E0B;">' + ahorroTxt(p.precio, p.precioOferta) + '</div>';
       } else {
-        h += '<div class="pi-precio">' + precioTxt(p.precio) + '</div>';
+        h += '<div style="font-size:18px;font-weight:900;color:#059669;">' + precioTxt(p.precio) + '</div>';
       }
       h += '</div>';
-      if(p.sku) h += '<div style="font-size:0.6rem;color:#94A3B8;margin-top:4px;">SKU: ' + escapeHtml(p.sku) + '</div>';
+      if(p.sku) h += '<div style="font-size:9px;color:#94A3B8;margin-top:4px;">SKU: ' + escapeHtml(p.sku) + '</div>';
       h += '</div></div>';
     });
     h += '</div>';
   });
 
-  // Footer con contacto
-  h += '<div class="print-footer">';
-  h += '<div class="contacto">📞 Contacto: +51 907 565 569 · WhatsApp</div>';
-  h += '<div>💳 Yape: 980 811 297 · A nombre de Lorenzo N. Tarazona T.</div>';
-  h += '<div>💳 Yape MATE: 956 203 893 · Corporación Medica Plan De Vida Sac</div>';
-  h += '<div class="redes">🚚 Entrega a domicilio · 🏪 Tiendas MATE · Sigue nuestras ofertas en WhatsApp</div>';
+  // Footer con info dinámica de la tienda
+  h += '<div style="margin-top:24px;padding-top:14px;border-top:2px solid ' + colorMarca + ';text-align:center;font-size:12px;color:#555;">';
+  if(configTienda.telefono) h += '<div style="font-weight:700;color:' + colorMarca + ';margin-bottom:4px;">📞 Contacto: +51 ' + escapeHtml(configTienda.telefono) + ' · WhatsApp</div>';
+  if(configTienda.yapeNum) h += '<div>💳 Yape: ' + escapeHtml(configTienda.yapeNum) + (configTienda.yapeTitular ? ' · ' + escapeHtml(configTienda.yapeTitular) : '') + '</div>';
+  if(configTienda.banco) h += '<div>🏦 ' + escapeHtml(configTienda.banco) + '</div>';
+  if(configTienda.web || configTienda.instagram || configTienda.facebook){
+    var redes = [];
+    if(configTienda.web) redes.push('🌐 ' + escapeHtml(configTienda.web));
+    if(configTienda.instagram) redes.push('📷 ' + escapeHtml(configTienda.instagram));
+    if(configTienda.facebook) redes.push('👍 ' + escapeHtml(configTienda.facebook));
+    h += '<div style="margin-top:4px;">' + redes.join(' · ') + '</div>';
+  }
+  if(configTienda.envio) h += '<div style="margin-top:6px;font-size:11px;color:#888;">🚚 ' + escapeHtml(configTienda.envio) + '</div>';
   h += '</div>';
 
-  document.getElementById('zonaPrint').innerHTML = h;
-  setTimeout(function(){ window.print(); }, 200);
+  div.innerHTML = h;
+  document.body.appendChild(div);
+
+  // Renderizar con html2canvas y generar PDF con jsPDF
+  html2canvas(div, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff' }).then(function(canvas){
+    document.body.removeChild(div);
+    var imgData = canvas.toDataURL('image/jpeg', 0.92);
+    var imgWidth = 210; // A4 en mm
+    var pageHeight = 297; // A4 en mm
+    var imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+    var pdf = new jspdf.jsPDF('p', 'mm', 'a4');
+    var heightLeft = imgHeight;
+    var position = 0;
+
+    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+
+    // Si el catálogo ocupa más de 1 página, agregar más
+    while(heightLeft > 0){
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
+
+    // Generar blob y compartir/descargar
+    var blob = pdf.output('blob');
+    var nombreTiendaLimpio = (configTienda.nombre || 'TrackVerse').replace(/[^a-zA-Z0-9]/g, '-');
+    var filename = 'Catalogo-' + nombreTiendaLimpio + '-' + new Date().toISOString().slice(0,10) + '.pdf';
+    var file = new File([blob], filename, { type: 'application/pdf' });
+
+    // Intentar Web Share API primero (en APK funciona)
+    if(navigator.canShare && navigator.canShare({ files: [file] })){
+      navigator.share({
+        files: [file],
+        title: 'Catálogo ' + (configTienda.nombre || 'TrackVerse'),
+        text: '🛍️ Catálogo ' + (configTienda.nombre || 'TrackVerse') + ' · ' + fecha
+      }).then(function(){
+        mostrarToast('Catálogo compartido ✓');
+      }).catch(function(e){
+        if(e.name !== 'AbortError'){
+          // Si falla share, descargar directo
+          descargarPDF(blob, filename);
+        }
+      });
+    } else {
+      // Fallback: descargar directo
+      descargarPDF(blob, filename);
+    }
+  }).catch(function(e){
+    document.body.removeChild(div);
+    mostrarToast('Error generando PDF: ' + e.message);
+    console.error('html2canvas error:', e);
+  });
+}
+
+function descargarPDF(blob, filename){
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  mostrarToast('PDF descargado ✓');
 }
 </script>
 </body>
