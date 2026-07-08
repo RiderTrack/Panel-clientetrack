@@ -15,6 +15,16 @@
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <!-- SheetJS como fallback (CSV simple si ExcelJS falla) -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- Capacitor Bridge — habilita plugins nativos (Share, Filesystem) en APK -->
+<script>
+  // Cargar bridge de Capacitor si estamos en APK nativo
+  if(typeof Capacitor === 'undefined'){
+    var s = document.createElement('script');
+    s.src = 'capacitor.js';
+    s.onerror = function(){}; // silencioso si no existe (navegador)
+    document.head.appendChild(s);
+  }
+</script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
   :root{
