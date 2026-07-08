@@ -884,29 +884,67 @@ async function exportarExcel(){
   }
 }
 
-// ===== Compartir/guardar con el plugin Share de Capacitor =====
-// El WebView no soporta descargas web. Usamos el plugin Share nativo,
-// que en Android abre el menu para guardar en Archivos, Drive, WhatsApp...
-// Como Share necesita un archivo en disco, lo escribimos primero como
-// data URL temporal que el plugin sabe manejar via Blob URL.
+// ===== Compartir/guardar archivos en APK =====
+// Estrategia: usar Filesystem para guardar en Documents, luego ofrecer compartir
 async function compartirOdescargar(blob, filename, mimeType){
   var plugins = null;
   try {
     plugins = (window.Capacitor && window.Capacitor.Plugins)
            || (window.top && window.top.Capacitor && window.top.Capacitor.Plugins);
   } catch(e){}
+  var Filesystem = plugins && plugins.Filesystem;
   var Share = plugins && plugins.Share;
   var Cap = (window.Capacitor || (window.top && window.top.Capacitor));
 
-  // ── App compilada con plugin Share ──
+  // ── APK con plugin Filesystem: guardar directamente en Documents ──
+  if(Filesystem && Cap && Cap.isNativePlatform && Cap.isNativePlatform()){
+    try {
+      // Convertir blob a base64 (Filesystem.writeFile requiere base64 sin prefijo)
+      var base64 = await new Promise(function(res, rej){
+        var r = new FileReader();
+        r.onloadend = function(){
+          var result = r.result;
+          // Quitar el prefijo "data:...;base64,"
+          res(result.split(',')[1]);
+        };
+        r.onerror = rej;
+        r.readAsDataURL(blob);
+      });
+      var result = await Filesystem.writeFile({
+        path: filename,
+        data: base64,
+        directory: 'DOCUMENTS',
+        recursive: true
+      });
+      console.log('Archivo guardado en:', result.uri);
+      mostrarToast('✅ Guardado en: ' + result.uri);
+      // Preguntar si quiere compartir
+      setTimeout(function(){
+        if(confirm('✅ Archivo guardado en:\n' + result.uri + '\n\n¿Quieres compartirlo ahora (WhatsApp, email, Drive)?')){
+          if(Share){
+            Share.share({
+              title: 'TrackVerse',
+              text: '📊 ' + filename,
+              url: result.uri,
+              dialogTitle: 'Compartir Excel'
+            }).catch(function(){});
+          }
+        }
+      }, 500);
+      return;
+    } catch(e){
+      console.warn('Filesystem falló:', e.message);
+      // Continuar con siguientes fallbacks
+    }
+  }
+
+  // ── APK sin Filesystem: usar Share con Web Share API ──
   if(Share && Cap && Cap.isNativePlatform && Cap.isNativePlatform()){
     try {
-      // Convertir blob a data URL y escribirlo con Filesystem si existe,
-      // si no, usar la Web Share API que el plugin habilita en el WebView.
       var file = new File([blob], filename, { type: mimeType || 'application/octet-stream' });
       if(navigator.canShare && navigator.canShare({ files: [file] })){
         await navigator.share({ files: [file], title: 'TrackVerse', text: filename });
-        mostrarToast('Compartido \u2713');
+        mostrarToast('Compartido ✓');
         return;
       }
       // Fallback: data URL por Share.share url
@@ -914,7 +952,7 @@ async function compartirOdescargar(blob, filename, mimeType){
         var r = new FileReader(); r.onloadend = function(){ res(r.result); }; r.onerror = rej; r.readAsDataURL(blob);
       });
       await Share.share({ title: 'TrackVerse', text: filename, url: dataUrl, dialogTitle: 'Guardar o compartir reporte' });
-      mostrarToast('Menu de compartir abierto');
+      mostrarToast('Menú de compartir abierto');
       return;
     } catch(e){
       if(e && e.name === 'AbortError') return;
@@ -929,7 +967,7 @@ async function compartirOdescargar(blob, filename, mimeType){
       var f2 = new File([blob], filename, { type: mimeType || 'application/octet-stream' });
       if(navigator.canShare({ files: [f2] })){
         await navigator.share({ files: [f2], title: 'TrackVerse', text: filename });
-        mostrarToast('Compartido \u2713');
+        mostrarToast('Compartido ✓');
         return;
       }
     }
@@ -940,7 +978,7 @@ async function compartirOdescargar(blob, filename, mimeType){
   a.href = url; a.download = filename;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
-  mostrarToast('Archivo descargado \u2713');
+  mostrarToast('Archivo descargado ✓');
 }
 // ===== Exportar con ExcelJS (incluye imágenes de gráficos) =====
 async function exportarConExcelJS(arr, conGraficos){
