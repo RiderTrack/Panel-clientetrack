@@ -9,7 +9,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    # Exponer secretos como env para poder usarlos en if: (GitHub no permite secrets en if directo)
     env:
       KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
       KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -32,7 +31,6 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      # El panel es la portada; los modulos van al lado
       - name: Prepare Web Assets
         run: |
           mkdir -p www
@@ -52,24 +50,17 @@ jobs:
           sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.CAMERA" />|' android/app/src/main/AndroidManifest.xml
           grep "uses-permission" android/app/src/main/AndroidManifest.xml
 
-      # ── NOMBRE de la app (lo que ves al instalar y en el launcher) ──
-      # OJO: Capacitor ya crea strings.xml con varios strings (title_activity_main, etc).
-      # Solo modificamos app_name, NO sobreescribimos el archivo completo.
       - name: Set App Name to TrackVerse
         run: |
           mkdir -p android/app/src/main/res/values
           STRINGS=android/app/src/main/res/values/strings.xml
           if [ -f "$STRINGS" ]; then
-            # Capacitor ya lo creó: reemplazar solo app_name
             sed -i 's|<string name="app_name">[^<]*</string>|<string name="app_name">TrackVerse</string>|' "$STRINGS"
-            # Si no tiene app_name, agregarlo
             grep -q 'name="app_name"' "$STRINGS" || \
               sed -i 's|</resources>|    <string name="app_name">TrackVerse</string>\n</resources>|' "$STRINGS"
-            # Asegurar title_activity_main (Capacitor a veces lo olvida)
             grep -q 'title_activity_main' "$STRINGS" || \
               sed -i 's|</resources>|    <string name="title_activity_main">TrackVerse</string>\n</resources>|' "$STRINGS"
           else
-            # No existe: crearlo con los strings mínimos
             cat > "$STRINGS" << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -86,48 +77,101 @@ jobs:
       - name: Sync Web Assets
         run: npx cap sync android
 
-      # ── RECUPERAR KEYSTORE PERMANENTE desde secretos ──
-      # GitHub no permite secrets en if: directo, por eso usamos env.KEYSTORE_BASE64
+      # ── Decodificar el keystore DENTRO de android/app/ (mismo lugar que build.gradle) ──
+      # Asi la referencia en build.gradle es solo "trackverse.keystore", sin contar carpetas ".."
       - name: Decode Keystore
         if: env.KEYSTORE_BASE64 != ''
         run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > android/trackverse.keystore
-          ls -la android/trackverse.keystore
-          echo "✅ Keystore decodificado"
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/trackverse.keystore
+          ls -la android/app/trackverse.keystore
+          echo "✅ Keystore decodificado junto a build.gradle"
 
-      - name: Configure Signing with trackverse keystore
+      # ── Parche robusto (reemplaza los sed fragiles): garantiza firma en release Y debug ──
+      - name: Configure Signing (robusto)
         if: env.KEYSTORE_BASE64 != ''
         working-directory: android
         run: |
-          # Agregar signingConfig.trackverse al build.gradle
-          sed -i '/signingConfigs {/,/}/c\
-              signingConfigs {\
-                  trackverse {\
-                      storeFile file("../../trackverse.keystore")\
-                      storePassword "'"$KEYSTORE_PASSWORD"'"\
-                      keyAlias "'"$KEY_ALIAS"'"\
-                      keyPassword "'"$KEYSTORE_PASSWORD"'"\
-                  }\
-              }' app/build.gradle
-          # Usar el signingConfig en debug Y release (misma firma siempre)
-          sed -i 's|signingConfig signingConfigs.debug|signingConfig signingConfigs.trackverse|g' app/build.gradle
-          sed -i '/buildTypes {/,/debug {/s/debug {/debug {\n            signingConfig signingConfigs.trackverse/' app/build.gradle
-          echo "✅ Firma configurada con keystore trackverse"
+          cat > fix-signing.js << 'JSEOF'
+          const fs = require('fs');
+          const RUTA = 'app/build.gradle';
+          let code = fs.readFileSync(RUTA, 'utf8');
 
-      # ── BUILD APK (firmado si hay keystore, debug si no) ──
+          function cierreDe(texto, desde) {
+            let nivel = 1;
+            for (let i = desde + 1; i < texto.length; i++) {
+              if (texto[i] === '{') nivel++;
+              else if (texto[i] === '}') { nivel--; if (nivel === 0) return i; }
+            }
+            return -1;
+          }
+
+          const nuevoSigning =
+          `signingConfigs {
+                  trackverse {
+                      storeFile file("trackverse.keystore")
+                      storePassword System.getenv("KEYSTORE_PASSWORD")
+                      keyAlias System.getenv("KEY_ALIAS")
+                      keyPassword System.getenv("KEYSTORE_PASSWORD")
+                  }
+              }`;
+
+          const iSC = code.indexOf('signingConfigs {');
+          if (iSC === -1) { console.error('NO ENCONTRADO signingConfigs {'); process.exit(1); }
+          const iAbre = code.indexOf('{', iSC);
+          const iCierra = cierreDe(code, iAbre);
+          code = code.slice(0, iSC) + nuevoSigning + code.slice(iCierra + 1);
+          console.log('signingConfigs reemplazado');
+
+          const iBT = code.indexOf('buildTypes {');
+          if (iBT === -1) { console.error('NO ENCONTRADO buildTypes {'); fs.writeFileSync(RUTA, code); process.exit(1); }
+          const iBTAbre = code.indexOf('{', iBT);
+          const iBTCierra = cierreDe(code, iBTAbre);
+          let bloqueBT = code.slice(iBTAbre + 1, iBTCierra);
+
+          function asegurarFirmaEn(bloque, nombreTipo) {
+            var idx = bloque.indexOf(nombreTipo + ' {');
+            if (idx !== -1) {
+              var abre = bloque.indexOf('{', idx);
+              var cierra = cierreDe(bloque, abre);
+              var contenido = bloque.slice(abre + 1, cierra);
+              if (contenido.indexOf('signingConfigs.trackverse') !== -1) { console.log(nombreTipo + ' ya firmado'); return bloque; }
+              var nuevoContenido = '\n            signingConfig signingConfigs.trackverse' + contenido;
+              return bloque.slice(0, abre + 1) + nuevoContenido + bloque.slice(cierra);
+            } else {
+              console.log('Creando bloque ' + nombreTipo);
+              var nuevo = '\n        ' + nombreTipo + ' {\n            signingConfig signingConfigs.trackverse\n        }\n    ';
+              return bloque + nuevo;
+            }
+          }
+
+          bloqueBT = asegurarFirmaEn(bloqueBT, 'release');
+          bloqueBT = asegurarFirmaEn(bloqueBT, 'debug');
+          code = code.slice(0, iBTAbre + 1) + bloqueBT + code.slice(iBTCierra);
+          fs.writeFileSync(RUTA, code);
+          console.log('build.gradle parchado correctamente');
+          JSEOF
+          node fix-signing.js
+          echo "=== build.gradle resultante ==="
+          cat app/build.gradle
+
+      # ── BUILD APK (busca el archivo real generado, sin asumir su nombre exacto) ──
       - name: Build APK
         working-directory: android
         run: |
           chmod +x gradlew
-          if [ -f trackverse.keystore ]; then
-            echo "🔐 Compilando APK firmado con keystore permanente (actualiza sin desinstalar)"
+          if [ -f app/trackverse.keystore ]; then
+            echo "🔐 Compilando APK firmado (actualiza sin desinstalar)"
             ./gradlew assembleRelease
-            # Copiar con nombre bonito
-            cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/TrackVerse.apk
+            APK=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+            echo "APK generado: $APK"
+            if [ -z "$APK" ]; then echo "❌ No se genero ningun APK en release/"; exit 1; fi
+            cp "$APK" app/build/outputs/apk/release/TrackVerse.apk
           else
-            echo "⚠️  Sin keystore configurado. Compilando debug (habrá que desinstalar primero)"
+            echo "⚠️  Sin keystore. Compilando debug (habra que desinstalar una vez)"
             ./gradlew assembleDebug
-            cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/TrackVerse.apk
+            APK=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+            echo "APK generado: $APK"
+            cp "$APK" app/build/outputs/apk/debug/TrackVerse.apk
           fi
 
       - name: Upload APK
