@@ -84,9 +84,6 @@
   .kpi-sub{font-size:0.7rem; color:var(--muted); margin-top:3px;}
   .kpi-sub.up{color:var(--green);}
   .kpi-sub.down{color:var(--red);}
-  .kpi-sub .up, .kpi-sub .down{font-weight:700;}
-  .kpi-sub .up{color:var(--green);}
-  .kpi-sub .down{color:var(--red);}
 
   /* ===== Cards de gráficos ===== */
   .grid-2{display:grid; grid-template-columns:1fr; gap:14px; margin-bottom:14px;}
@@ -387,36 +384,6 @@ function filtrarPorPeriodo(arr){
   return arr.filter(function(c){ return (c._fecha || 0) >= limite; });
 }
 
-// ===== Comparación vs período anterior (mismo largo de ventana, justo antes) =====
-function filtrarPeriodoAnterior(arr){
-  if(periodoActual === 'todo') return null; // "Todo" no tiene un "anterior" con qué comparar
-  var ahora = Date.now();
-  var inicio, fin;
-  if(periodoActual === 'hoy'){
-    var inicioHoy = new Date(); inicioHoy.setHours(0,0,0,0);
-    fin = inicioHoy.getTime();
-    inicio = fin - 24*60*60*1000;
-  } else if(periodoActual === '7d'){
-    fin = ahora - 7*24*60*60*1000;
-    inicio = fin - 7*24*60*60*1000;
-  } else if(periodoActual === '30d'){
-    fin = ahora - 30*24*60*60*1000;
-    inicio = fin - 30*24*60*60*1000;
-  }
-  return arr.filter(function(c){ return (c._fecha||0) >= inicio && (c._fecha||0) < fin; });
-}
-
-// ===== Texto de tendencia (▲/▼ % vs período anterior) usando las clases .up/.down ya existentes =====
-function tendencia(actual, anterior){
-  if(anterior === 0 && actual === 0) return '';
-  if(anterior === 0) return '<span class="up">▲ nuevo este período</span>';
-  var pct = Math.round(((actual - anterior) / anterior) * 100);
-  if(pct === 0) return '<span style="color:var(--muted)">= igual que el período anterior</span>';
-  var cls = pct > 0 ? 'up' : 'down';
-  var flecha = pct > 0 ? '▲' : '▼';
-  return '<span class="' + cls + '">' + flecha + ' ' + Math.abs(pct) + '% vs. período anterior</span>';
-}
-
 // ===== Render principal =====
 function setPeriodo(p, el){
   periodoActual = p;
@@ -449,22 +416,11 @@ function render(){
   var tasaExito = total > 0 ? Math.round((entregados.length / total) * 100) : 0;
   var ticketPromedio = entregados.length > 0 ? montoTotal / entregados.length : 0;
 
-  // ===== Comparación vs período anterior =====
-  var arrAnterior = filtrarPeriodoAnterior(datos.todos || []);
-  var trendPedidos = '', trendMonto = '';
-  if(arrAnterior !== null){
-    var totalAnterior = arrAnterior.length;
-    var entregadosAnterior = arrAnterior.filter(function(c){ return clasificarEstado(c.st) === 'entregado'; });
-    var montoAnterior = entregadosAnterior.reduce(function(s,c){ return s + montoDe(c.cobrar); }, 0);
-    trendPedidos = tendencia(total, totalAnterior);
-    trendMonto = tendencia(montoTotal, montoAnterior);
-  }
-
   // ===== HTML KPIs =====
   var h = '';
   h += '<div class="kpis">';
-  h += kpiCard('blue', 'fa-box', 'Pedidos totales', total, entregados.length + ' entregados · ' + fallidos.length + ' fallidos' + (trendPedidos ? '<br>' + trendPedidos : ''));
-  h += kpiCard('green', 'fa-money-bill-wave', 'Monto cobrado', 'S/ ' + montoTotal.toFixed(2).replace(/\.00$/,''), 'Ticket prom: S/ ' + ticketPromedio.toFixed(2).replace(/\.00$/,'') + (trendMonto ? '<br>' + trendMonto : ''));
+  h += kpiCard('blue', 'fa-box', 'Pedidos totales', total, entregados.length + ' entregados · ' + fallidos.length + ' fallidos');
+  h += kpiCard('green', 'fa-money-bill-wave', 'Monto cobrado', 'S/ ' + montoTotal.toFixed(2).replace(/\.00$/,''), 'Ticket prom: S/ ' + ticketPromedio.toFixed(2).replace(/\.00$/,''));
   h += kpiCard('purple', 'fa-check-circle', 'Tasa de éxito', tasaExito + '%', entregados.length + ' de ' + total + ' pedidos');
   h += kpiCard('amber', 'fa-clock', 'Pendientes', pendientes.length, fallidos.length > 0 ? fallidos.length + ' fallidos' : 'Sin fallidos');
   h += '</div>';
@@ -928,61 +884,70 @@ async function exportarExcel(){
   }
 }
 
-// ===== Detectar si estamos en APK (Capacitor) — informativo, ya no se usa para decidir el metodo =====
-function esAPK(){
-  try{
-    if(typeof window.Capacitor !== 'undefined' && window.Capacitor.isNative) return true;
-    // Dentro de un iframe, Capacitor solo vive en la ventana principal (window.top), no aqui
-    if(window.top && typeof window.top.Capacitor !== 'undefined' && window.top.Capacitor.isNative) return true;
-  }catch(e){}
-  return false;
+// ===== Guardar archivo con plugins NATIVOS de Capacitor =====
+// El WebView de Capacitor no soporta navigator.share ni a.click().
+// La forma correcta: Filesystem (guarda en el telefono) + Share (comparte).
+function blobABase64(blob){
+  return new Promise(function(resolve, reject){
+    var reader = new FileReader();
+    reader.onloadend = function(){ resolve(String(reader.result).split(',')[1]); };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }
 
-// ===== Compartir o descargar: SIEMPRE intenta compartir primero (funciona en app Y en Chrome) =====
-// Regla de oro: dentro de un iframe (como este modulo dentro del panel), Capacitor
-// no siempre se puede detectar de forma fiable -> en vez de adivinar el entorno,
-// se intenta el metodo mas compatible primero y se cae al clasico solo si falla.
 async function compartirOdescargar(blob, filename, mimeType){
-  // DIAGNOSTICO: mostrar en pantalla qué soporta este entorno
-  var tieneShare = typeof navigator.share === 'function';
-  var tieneCanShare = typeof navigator.canShare === 'function';
-  var file = null;
-  try { file = new File([blob], filename, { type: mimeType || 'application/octet-stream' }); } catch(e){}
-  var puedeShareFile = false;
-  try { puedeShareFile = tieneCanShare && file && navigator.canShare({ files: [file] }); } catch(e){}
+  // Los plugins viven en window.top (estamos dentro de un iframe)
+  var plugins = null;
+  try {
+    plugins = (window.Capacitor && window.Capacitor.Plugins)
+           || (window.top && window.top.Capacitor && window.top.Capacitor.Plugins);
+  } catch(e){}
+  var Filesystem = plugins && plugins.Filesystem;
+  var Share = plugins && plugins.Share;
 
-  mostrarToast('share:' + tieneShare + ' canShare:' + tieneCanShare + ' file:' + puedeShareFile);
-  await new Promise(function(r){ setTimeout(r, 2600); }); // pausa para leer el toast
-
-  // Intento 1: compartir el archivo (menú nativo de Android)
-  if(tieneShare && puedeShareFile){
+  // ── App compilada: guardar con Filesystem y ofrecer Share ──
+  if(Filesystem){
     try {
-      await navigator.share({ files: [file], title: 'TrackVerse', text: '📊 ' + filename });
-      mostrarToast('Compartido ✓');
+      var base64 = await blobABase64(blob);
+      var res = await Filesystem.writeFile({
+        path: filename,
+        data: base64,
+        directory: 'DOCUMENTS',
+        recursive: true
+      });
+      mostrarToast('Guardado en Documentos: ' + filename);
+      if(Share && res && res.uri){
+        try {
+          await Share.share({ title: 'TrackVerse', text: filename, url: res.uri, dialogTitle: 'Compartir reporte' });
+        } catch(eShare){ /* canceló, pero ya se guardó */ }
+      }
       return;
     } catch(e){
-      if(e.name === 'AbortError') return;
-      mostrarToast('Share falló: ' + e.message);
-      await new Promise(function(r){ setTimeout(r, 2600); });
+      mostrarToast('Error guardando: ' + e.message);
+      return;
     }
   }
 
-  // Intento 2: descarga clásica (Chrome)
+  // ── Navegador (Chrome): share web o descarga clásica ──
   try {
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
-    mostrarToast('Intenté descarga clásica (a.click)');
-  } catch(e){
-    mostrarToast('Descarga clásica falló: ' + e.message);
-  }
-}
+    if(typeof navigator.share === 'function' && navigator.canShare){
+      var file = new File([blob], filename, { type: mimeType || 'application/octet-stream' });
+      if(navigator.canShare({ files: [file] })){
+        await navigator.share({ files: [file], title: 'TrackVerse', text: filename });
+        mostrarToast('Compartido \u2713');
+        return;
+      }
+    }
+  } catch(e){ if(e.name === 'AbortError') return; }
 
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+  mostrarToast('Archivo descargado \u2713');
+}
 // ===== Exportar con ExcelJS (incluye imágenes de gráficos) =====
 async function exportarConExcelJS(arr, conGraficos){
   var wb = new ExcelJS.Workbook();
