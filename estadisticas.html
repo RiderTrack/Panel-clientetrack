@@ -884,101 +884,116 @@ async function exportarExcel(){
   }
 }
 
-// ===== Compartir/guardar archivos en APK =====
-// Estrategia: usar Filesystem para guardar en Documents, luego ofrecer compartir
+// ===== Funciones copiadas de RiderTrack (que SÍ funcionan en APK) =====
+function esCapacitor(){
+  return typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+}
+function esWebView(){
+  var ua = navigator.userAgent || '';
+  return ua.toLowerCase().includes('gonative')
+    || ua.toLowerCase().includes('median')
+    || (ua.includes('Android') && ua.includes('wv'))
+    || typeof window.gonative !== 'undefined'
+    || typeof window.median !== 'undefined'
+    || esCapacitor();
+}
+
+// Descarga directa — copiada tal cual de RiderTrack (funciona en APK)
+function descargaDirecta(blob, nombre){
+  // ── Capacitor nativo ──
+  if(esCapacitor()){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var b64data = e.target.result.split(',')[1];
+      var FS = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem;
+      if(!FS){ mostrarToast('❌ Plugin no disponible'); return; }
+      FS.writeFile({path: nombre, data: b64data, directory: 'DOWNLOADS', recursive: true})
+        .then(function(){ mostrarToast('✅ Guardado en Descargas: ' + nombre); })
+        .catch(function(){
+          FS.writeFile({path: nombre, data: b64data, directory: 'DOCUMENTS', recursive: true})
+            .then(function(){ mostrarToast('✅ Guardado en Documentos: ' + nombre); })
+            .catch(function(){
+              FS.writeFile({path: nombre, data: b64data, directory: 'CACHE', recursive: true})
+                .then(function(){
+                  FS.getUri({path: nombre, directory: 'CACHE'}).then(function(u){
+                    var SH = window.Capacitor.Plugins.Share;
+                    if(SH){ SH.share({title: nombre, url: u.uri, dialogTitle: 'Guardar ' + nombre}); }
+                    else { mostrarToast('✅ ' + nombre + ' guardado'); }
+                  });
+                })
+                .catch(function(){ mostrarToast('❌ Error al guardar archivo'); });
+            });
+        });
+    };
+    reader.readAsDataURL(blob);
+    return;
+  }
+
+  var reader2 = new FileReader();
+  reader2.onload = function(e){
+    var b64 = e.target.result;
+    // WebView — pantalla intermedia con botón
+    if(esWebView()){
+      mostrarPantallaDescarga(b64, nombre);
+      return;
+    }
+    // Chrome / PC normal — descarga directa
+    if(window.navigator && window.navigator.msSaveBlob){ window.navigator.msSaveBlob(blob, nombre); return; }
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.style.display = 'none'; a.href = url;
+    a.setAttribute('download', nombre);
+    document.body.appendChild(a);
+    var evt = new MouseEvent('click', {bubbles: true, cancelable: true, view: window});
+    a.dispatchEvent(evt);
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 2000);
+  };
+  reader2.readAsDataURL(blob);
+}
+
+function mostrarPantallaDescarga(b64dataUri, nombre){
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(1px);overflow-y:auto;-webkit-overflow-scrolling:touch';
+  document.body.style.overflow = 'hidden';
+  var ext = nombre.split('.').pop().toUpperCase();
+  var ico = ext === 'XLSX' ? '📊' : ext === 'JSON' ? '💾' : '📄';
+  ov.innerHTML =
+    '<div style="background:#0f1623;border:1px solid #1e3050;border-radius:20px;padding:28px 22px;max-width:320px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.6)">' +
+    '<div style="font-size:3rem;margin-bottom:12px">' + ico + '</div>' +
+    '<div style="font-family:Inter,sans-serif;font-size:1rem;font-weight:800;color:#4f8ef7;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:4px">Archivo Listo</div>' +
+    '<div style="font-size:0.72rem;color:#5878a0;margin-bottom:20px;word-break:break-all">' + nombre + '</div>' +
+    '<a href="' + b64dataUri + '" download="' + nombre + '" ' +
+    'style="display:block;width:100%;padding:14px;background:linear-gradient(135deg,#2563eb,#4f8ef7);color:#fff;border-radius:12px;text-decoration:none;font-weight:700;font-size:1rem;margin-bottom:10px;box-shadow:0 4px 16px rgba(37,99,235,0.4)">' +
+    '⬇️ Descargar ' + ext + '</a>' +
+    '<div style="font-size:0.65rem;color:#5878a0;margin-bottom:16px">Si no descarga → mantén presionado el botón → "Descargar enlace"</div>' +
+    '<button onclick="this.parentElement.parentElement.remove();document.body.style.overflow=\'auto\'" ' +
+    'style="background:none;border:1px solid #1e3050;border-radius:8px;padding:8px 20px;color:#5878a0;cursor:pointer;font-family:Inter,sans-serif;font-size:0.8rem">✕ Cerrar</button>' +
+    '</div>';
+  document.body.appendChild(ov);
+}
+
+// Compartir archivo — copiada tal cual de RiderTrack
+function compartirArchivo(blob, nombre, titulo){
+  var file = new File([blob], nombre, {type: blob.type});
+  if(navigator.canShare && navigator.canShare({files: [file]})){
+    navigator.share({files: [file], title: 'TrackVerse — ' + nombre, text: titulo || nombre})
+      .catch(function(e){
+        if(e && e.name !== 'AbortError') descargaDirecta(blob, nombre);
+      });
+  } else {
+    descargaDirecta(blob, nombre);
+  }
+}
+
+// Wrapper: usa las funciones de RiderTrack que ya funcionan
 async function compartirOdescargar(blob, filename, mimeType){
-  var plugins = null;
-  try {
-    plugins = (window.Capacitor && window.Capacitor.Plugins)
-           || (window.top && window.top.Capacitor && window.top.Capacitor.Plugins);
-  } catch(e){}
-  var Filesystem = plugins && plugins.Filesystem;
-  var Share = plugins && plugins.Share;
-  var Cap = (window.Capacitor || (window.top && window.top.Capacitor));
-
-  // ── APK con plugin Filesystem: guardar directamente en Documents ──
-  if(Filesystem && Cap && Cap.isNativePlatform && Cap.isNativePlatform()){
-    try {
-      // Convertir blob a base64 (Filesystem.writeFile requiere base64 sin prefijo)
-      var base64 = await new Promise(function(res, rej){
-        var r = new FileReader();
-        r.onloadend = function(){
-          var result = r.result;
-          // Quitar el prefijo "data:...;base64,"
-          res(result.split(',')[1]);
-        };
-        r.onerror = rej;
-        r.readAsDataURL(blob);
-      });
-      var result = await Filesystem.writeFile({
-        path: filename,
-        data: base64,
-        directory: 'DOCUMENTS',
-        recursive: true
-      });
-      console.log('Archivo guardado en:', result.uri);
-      mostrarToast('✅ Guardado en: ' + result.uri);
-      // Preguntar si quiere compartir
-      setTimeout(function(){
-        if(confirm('✅ Archivo guardado en:\n' + result.uri + '\n\n¿Quieres compartirlo ahora (WhatsApp, email, Drive)?')){
-          if(Share){
-            Share.share({
-              title: 'TrackVerse',
-              text: '📊 ' + filename,
-              url: result.uri,
-              dialogTitle: 'Compartir Excel'
-            }).catch(function(){});
-          }
-        }
-      }, 500);
-      return;
-    } catch(e){
-      console.warn('Filesystem falló:', e.message);
-      // Continuar con siguientes fallbacks
-    }
+  // En APK o WebView: usar descargaDirecta (que tiene todos los fallbacks)
+  if(esCapacitor() || esWebView()){
+    descargaDirecta(blob, filename);
+    return;
   }
-
-  // ── APK sin Filesystem: usar Share con Web Share API ──
-  if(Share && Cap && Cap.isNativePlatform && Cap.isNativePlatform()){
-    try {
-      var file = new File([blob], filename, { type: mimeType || 'application/octet-stream' });
-      if(navigator.canShare && navigator.canShare({ files: [file] })){
-        await navigator.share({ files: [file], title: 'TrackVerse', text: filename });
-        mostrarToast('Compartido ✓');
-        return;
-      }
-      // Fallback: data URL por Share.share url
-      var dataUrl = await new Promise(function(res, rej){
-        var r = new FileReader(); r.onloadend = function(){ res(r.result); }; r.onerror = rej; r.readAsDataURL(blob);
-      });
-      await Share.share({ title: 'TrackVerse', text: filename, url: dataUrl, dialogTitle: 'Guardar o compartir reporte' });
-      mostrarToast('Menú de compartir abierto');
-      return;
-    } catch(e){
-      if(e && e.name === 'AbortError') return;
-      mostrarToast('Share: ' + (e && e.message ? e.message : 'error'));
-      return;
-    }
-  }
-
-  // ── Navegador (Chrome) ──
-  try {
-    if(typeof navigator.share === 'function' && navigator.canShare){
-      var f2 = new File([blob], filename, { type: mimeType || 'application/octet-stream' });
-      if(navigator.canShare({ files: [f2] })){
-        await navigator.share({ files: [f2], title: 'TrackVerse', text: filename });
-        mostrarToast('Compartido ✓');
-        return;
-      }
-    }
-  } catch(e){ if(e.name === 'AbortError') return; }
-
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
-  mostrarToast('Archivo descargado ✓');
+  // En navegador: intentar share, si no descarga directa
+  compartirArchivo(blob, filename, 'Estadísticas TrackVerse');
 }
 // ===== Exportar con ExcelJS (incluye imágenes de gráficos) =====
 async function exportarConExcelJS(arr, conGraficos){
