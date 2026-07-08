@@ -29,7 +29,6 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      # CLAVE: esto nos da zipalign y apksigner (firma fuera de Gradle)
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
@@ -82,19 +81,19 @@ jobs:
       - name: Set Gradle permissions
         run: chmod +x android/gradlew
 
-      # ── Compila un APK normal (sin firma de release aun) ──
       - name: Build Debug APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
 
-      # ── Restaurar (o crear la primera vez) el keystore permanente ──
+      # ── Solo UN secret necesario: KEYSTORE_BASE64 (igual que en RiderTrack) ──
+      # Alias y password van escritos aca mismo, fijos, igual que RiderTrack.
       - name: Restore or generate keystore
         run: |
           if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
             echo "✅ Usando keystore guardado en Secrets"
             echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
           else
-            echo "⚠️ No hay KEYSTORE_BASE64 — generando uno nuevo (guardalo como Secret despues)"
+            echo "⚠️ No hay KEYSTORE_BASE64 — generando uno nuevo"
             keytool -genkeypair \
               -keystore release.keystore \
               -alias trackverse \
@@ -107,26 +106,27 @@ jobs:
             echo ""
             echo "══════════════════════════════════════════════"
             echo "COPIA ESTE BASE64 Y GUARDALO EN GITHUB SECRETS"
+            echo "Nombre del secret: KEYSTORE_BASE64"
             echo "══════════════════════════════════════════════"
             base64 -w 0 release.keystore
             echo ""
+            echo "══════════════════════════════════════════════"
           fi
 
-      # ── Alinear el APK (requisito antes de firmar) ──
       - name: Zipalign APK
         run: |
           ZIPALIGN=$(find $ANDROID_SDK_ROOT -name "zipalign" | head -1)
           $ZIPALIGN -v -p 4 android/app/build/outputs/apk/debug/app-debug.apk TrackVerse-aligned.apk
 
-      # ── Firmar con el keystore permanente (sin tocar build.gradle) ──
+      # ── Alias y password fijos aca (igual que RiderTrack) — NO son secrets ──
       - name: Sign APK
         run: |
           APKSIGNER=$(find $ANDROID_SDK_ROOT -name "apksigner" | head -1)
           $APKSIGNER sign \
             --ks release.keystore \
-            --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
-            --ks-pass pass:"${{ secrets.KEYSTORE_PASSWORD }}" \
-            --key-pass pass:"${{ secrets.KEYSTORE_PASSWORD }}" \
+            --ks-key-alias trackverse \
+            --ks-pass pass:trackverse123 \
+            --key-pass pass:trackverse123 \
             --out TrackVerse.apk \
             TrackVerse-aligned.apk
           echo "✅ APK firmado correctamente"
