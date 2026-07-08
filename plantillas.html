@@ -171,6 +171,21 @@ body { background:var(--bg-color); color:var(--text-main); min-height:100vh; min
       </select>
     </div>
 
+    <!-- Barra de sincronización con el bot -->
+    <div style="margin:14px 16px 0; background:#fff; border:1px solid #E2E8F0; border-radius:16px; padding:13px 16px;">
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <div style="flex:1; min-width:150px;">
+          <div style="font-size:0.8rem; font-weight:700; display:flex; align-items:center; gap:6px;">
+            <span id="syncPunto" style="width:9px;height:9px;border-radius:50%;background:#94A3B8;display:inline-block;"></span>
+            <span id="syncTexto">Listo para sincronizar</span>
+          </div>
+          <div style="font-size:0.68rem; color:#64748B; margin-top:2px;">Edita y <b>guarda</b> tu plantilla primero. Luego toca sincronizar para que llegue al bot.</div>
+        </div>
+        <button onclick="sincronizarUnaVez()" style="background:linear-gradient(135deg,#0052FF,#7C3AED);color:#fff;border:none;border-radius:12px;padding:10px 16px;font-family:inherit;font-weight:700;font-size:0.8rem;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-rotate"></i> Sincronizar ahora</button>
+        <button id="btnBucle" onclick="toggleBucle()" style="background:#FFF7ED;color:#C2410C;border:1px solid #FED7AA;border-radius:12px;padding:10px 16px;font-family:inherit;font-weight:700;font-size:0.8rem;cursor:pointer;white-space:nowrap;">🚨 Modo bucle</button>
+      </div>
+    </div>
+
     <!-- Content -->
     <div class="main">
       <div class="toolbar">
@@ -296,6 +311,58 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+
+// ===== Sincronización con el bot (2 botones) =====
+var _bucleActivo = false;
+var _bucleTimer = null;
+function _toastSync(msg){
+  var t = document.getElementById('_ts');
+  if(!t){ t=document.createElement('div'); t.id='_ts'; t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#0F172A;color:#fff;padding:11px 20px;border-radius:14px;font-size:0.82rem;font-weight:600;z-index:9999;transition:transform .3s;white-space:nowrap;'; document.body.appendChild(t); }
+  t.textContent=msg; t.style.transform='translateX(-50%) translateY(0)';
+  clearTimeout(t._h); t._h=setTimeout(function(){ t.style.transform='translateX(-50%) translateY(80px)'; },2600);
+}
+// Botón 1: sincronizar una vez (barato, sin advertencia)
+function sincronizarUnaVez(){
+  db.collection('sistema').doc('puente_control').set({ accion:'once', ts: Date.now() }, {merge:true}).then(function(){
+    _toastSync('🔄 Sincronizando con el bot...');
+    var p=document.getElementById('syncPunto'), tx=document.getElementById('syncTexto');
+    p.style.background='#10B981'; tx.textContent='Enviado al bot ✓';
+    setTimeout(function(){ if(!_bucleActivo){ p.style.background='#94A3B8'; tx.textContent='Listo para sincronizar'; } }, 3000);
+  });
+}
+// Botón 2: modo bucle con advertencia y 10 min de auto-apagado
+function toggleBucle(){
+  if(_bucleActivo){
+    db.collection('sistema').doc('puente_control').set({ accion:'off' }, {merge:true}).then(function(){ _toastSync('Modo bucle detenido'); });
+    return;
+  }
+  if(!confirm('⚠️ MODO BUCLE\n\nEsto revisa las plantillas cada 15 segundos durante 10 minutos. Consume tus lecturas rápido — úsalo SOLO si vas a editar varias plantillas seguidas.\n\nSe apaga solo a los 10 minutos.\n\n¿Activar?')) return;
+  var expira = Date.now() + 10*60*1000;
+  db.collection('sistema').doc('puente_control').set({ accion:'loop', expiraEn: expira }, {merge:true}).then(function(){
+    _toastSync('🚨 Modo bucle activado por 10 minutos');
+  });
+}
+// Reflejar el estado real (sincroniza UI con el documento de control)
+db.collection('sistema').doc('puente_control').onSnapshot(function(doc){
+  var d = doc.exists ? doc.data() : {};
+  var activo = d.accion==='loop' && d.expiraEn && d.expiraEn > Date.now();
+  _bucleActivo = activo;
+  var btn=document.getElementById('btnBucle'), p=document.getElementById('syncPunto'), tx=document.getElementById('syncTexto');
+  clearInterval(_bucleTimer);
+  if(activo){
+    btn.textContent='⏸ Detener bucle'; btn.style.background='#FEE2E2'; btn.style.color='#B91C1C'; btn.style.borderColor='#FECACA';
+    p.style.background='#F59E0B';
+    _bucleTimer=setInterval(function(){
+      var seg=Math.max(0,Math.round((d.expiraEn-Date.now())/1000));
+      if(seg<=0){ clearInterval(_bucleTimer); return; }
+      var m=Math.floor(seg/60), s=seg%60;
+      tx.textContent='🚨 Bucle activo · se apaga en '+m+':'+(s<10?'0':'')+s;
+    },1000);
+  } else {
+    btn.textContent='🚨 Modo bucle'; btn.style.background='#FFF7ED'; btn.style.color='#C2410C'; btn.style.borderColor='#FED7AA';
+    p.style.background='#94A3B8'; tx.textContent='Listo para sincronizar';
+  }
+});
 const UID_BOT = 'K8wx9X5GGOfindI1RGtIIQN3UGr1';
 
 // Estado

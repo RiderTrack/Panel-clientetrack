@@ -731,6 +731,21 @@
 
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="cerrarSidebar()"></div>
 
+    <!-- Almacenamiento: detalle -->
+    <div class="drop" id="dropAlmacen">
+        <div class="drop-head">💾 Almacenamiento de la base</div>
+        <div style="padding:14px 16px;">
+            <div style="display:flex;justify-content:space-between;font-size:0.82rem;font-weight:700;margin-bottom:8px;">
+                <span id="almacenMB">— MB</span>
+                <span style="color:var(--text-muted);">de 1024 MB (1 GB)</span>
+            </div>
+            <div style="width:100%;height:10px;background:rgba(148,163,184,0.2);border-radius:6px;overflow:hidden;">
+                <span id="almacenBarra2" style="display:block;height:100%;width:0%;background:linear-gradient(90deg,#10B981,#0052FF);border-radius:6px;transition:width .6s;"></span>
+            </div>
+            <div id="almacenPct" style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;text-align:center;">—</div>
+            <div id="almacenInfo" style="font-size:0.66rem;color:var(--text-muted);margin-top:10px;line-height:1.5;border-top:1px solid var(--border-light);padding-top:10px;"></div>
+        </div>
+    </div>
     <!-- Campanita: mensajes sin leer -->
     <div class="drop" id="dropNotis">
         <div class="drop-head">🔔 Mensajes sin leer</div>
@@ -754,7 +769,13 @@
                 <input type="text" id="busGlobal" placeholder="Buscar cliente por nombre, teléfono o distrito..." autocomplete="off">
                 <div class="search-results" id="busResultados"></div>
             </div>
-            <div style="display: flex; gap: 16px; color: var(--text-muted); font-size: 20px;">
+            <div style="display: flex; gap: 16px; color: var(--text-muted); font-size: 20px; align-items: center;">
+                <span class="top-icon" onclick="toggleDrop('dropAlmacen')" title="Almacenamiento" style="display:flex;align-items:center;gap:6px;">
+                    <i class="fa-solid fa-database" style="font-size:16px;"></i>
+                    <span style="width:44px;height:6px;background:rgba(148,163,184,0.25);border-radius:6px;overflow:hidden;display:inline-block;">
+                        <span id="barraAlmacen" style="display:block;height:100%;width:0%;background:linear-gradient(90deg,#10B981,#0052FF);border-radius:6px;transition:width .6s;"></span>
+                    </span>
+                </span>
                 <span class="top-icon" onclick="toggleDrop('dropNotis')"><i class="fa-regular fa-bell"></i><span class="top-badge" id="notisBadge" style="display:none;">0</span></span>
                 <span class="top-icon" onclick="toggleDrop('dropRapido')"><i class="fa-solid fa-bolt" style="color: #F59E0B;"></i></span>
             </div>
@@ -1120,6 +1141,30 @@
             else document.body.removeAttribute('data-tema');
         }
         aplicarTema();
+
+        // ===== Barra de almacenamiento (lee sistema/uso_almacenamiento) =====
+        dbDash.collection('sistema').doc('uso_almacenamiento').onSnapshot(function(doc){
+            if(!doc.exists){
+                document.getElementById('almacenMB').textContent = 'Sin medir';
+                document.getElementById('almacenInfo').textContent = 'Corre una vez: node medir_almacenamiento.js en Termux para calcular el punto de partida.';
+                return;
+            }
+            var d = doc.data();
+            var mb = d.mb || (d.bytes ? d.bytes/(1024*1024) : 0);
+            var pct = Math.min(100, (mb/1024)*100);
+            var barra1 = document.getElementById('barraAlmacen');
+            var barra2 = document.getElementById('almacenBarra2');
+            if(barra1) barra1.style.width = pct + '%';
+            if(barra2) barra2.style.width = pct + '%';
+            // Color de alerta si se llena
+            var col = pct > 85 ? 'linear-gradient(90deg,#F59E0B,#EF4444)' : 'linear-gradient(90deg,#10B981,#0052FF)';
+            if(barra1) barra1.style.background = col;
+            if(barra2) barra2.style.background = col;
+            document.getElementById('almacenMB').textContent = mb.toFixed(1) + ' MB';
+            document.getElementById('almacenPct').textContent = pct.toFixed(1) + '% usado';
+            var fecha = d.medidoEn ? new Date(d.medidoEn).toLocaleString('es-PE') : '—';
+            document.getElementById('almacenInfo').innerHTML = '📸 ' + (d.docsMedia||0) + ' archivos con media<br>🕒 Última medición: ' + fecha + '<br>💡 Elimina fotos/audios viejos del chat para liberar espacio.';
+        }, function(e){ console.warn('almacen:', e.message); });
         window.addEventListener('storage', function(e){ if(e.key === 'tv_tema') aplicarTema(); });
 
         // ===== BUSCADOR GLOBAL =====
