@@ -61,6 +61,8 @@
     padding:7px 14px; font-size:0.76rem; font-weight:600; color:var(--muted); cursor:pointer;
   }
   .chip.activo{background:var(--text); border-color:var(--text); color:#fff;}
+  .chip.oferta{background:#FEF3C7; border-color:#F59E0B; color:#92400E;}
+  .chip.oferta.activo{background:#F59E0B; border-color:#F59E0B; color:#fff;}
 
   /* ===== Grid de productos ===== */
   main{padding:14px 16px 90px; max-width:900px; margin:0 auto;}
@@ -68,26 +70,38 @@
   .prod{
     background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
     overflow:hidden; box-shadow:var(--shadow); display:flex; flex-direction:column; position:relative;
+    transition:transform .15s, box-shadow .15s;
   }
-  .prod.agotado .prod-foto{filter:grayscale(1); opacity:0.7;}
+  .prod:active{transform:scale(0.98);}
+  .prod.destacado{border-color:#F59E0B; box-shadow:0 4px 16px rgba(245,158,11,0.2);}
+  .prod.agotado .prod-foto, .prod.agotado .prod-foto-ph{filter:grayscale(1); opacity:0.7;}
   .prod.oculto{opacity:0.55;}
+  .prod-foto-wrap{position:relative; aspect-ratio:1/1; background:#EEF2F9;}
   .prod-foto{
-    width:100%; aspect-ratio:1/1; object-fit:cover; display:block; background:#EEF2F9; cursor:pointer;
+    width:100%; height:100%; object-fit:cover; display:block; cursor:pointer;
   }
   .prod-foto-ph{
-    width:100%; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center;
-    font-size:2.4rem; color:#fff;
+    width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+    font-size:2.4rem; color:#fff; cursor:pointer;
   }
+  .prod-badge{
+    position:absolute; top:8px; font-size:0.6rem; font-weight:800; padding:4px 9px;
+    border-radius:8px; text-transform:uppercase; backdrop-filter:blur(4px); z-index:2;
+  }
+  .prod-badge.agotado{background:rgba(239,68,68,0.92); color:#fff; left:8px;}
+  .prod-badge.oculto{background:rgba(100,116,139,0.9); color:#fff; left:8px;}
+  .prod-badge.oferta{background:linear-gradient(135deg,#F59E0B,#EF4444); color:#fff; right:8px; left:auto; box-shadow:0 2px 8px rgba(245,158,11,0.4);}
+  .prod-badge.destacado{background:#FBBF24; color:#78350F; right:8px; left:auto;}
+  .prod-badge.nuevo{background:#10B981; color:#fff; right:8px; left:auto;}
   .prod-body{padding:10px 12px 12px; flex:1; display:flex; flex-direction:column; gap:3px;}
   .prod-cat{font-size:0.6rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:var(--purple);}
   .prod-nombre{font-weight:700; font-size:0.86rem; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
-  .prod-precio{font-weight:800; font-size:1rem; color:var(--green); margin-top:auto; padding-top:4px;}
-  .prod-badge{
-    position:absolute; top:8px; left:8px; font-size:0.6rem; font-weight:800; padding:4px 9px;
-    border-radius:8px; text-transform:uppercase; backdrop-filter:blur(4px);
-  }
-  .prod-badge.agotado{background:rgba(239,68,68,0.9); color:#fff;}
-  .prod-badge.oculto{background:rgba(100,116,139,0.9); color:#fff;}
+  .prod-desc-mini{font-size:0.7rem; color:var(--muted); line-height:1.3; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; margin-top:2px;}
+  .prod-precios{margin-top:auto; padding-top:6px;}
+  .prod-precio-oferta{font-size:0.66rem; color:var(--muted); text-decoration:line-through; display:block; line-height:1;}
+  .prod-precio{font-weight:800; font-size:1rem; color:var(--green); line-height:1.1;}
+  .prod-precio.oferta{color:#DC2626;}
+  .prod-ahorro{font-size:0.62rem; color:#F59E0B; font-weight:700; margin-top:2px;}
   .prod-acciones{display:flex; border-top:1px solid var(--border);}
   .prod-acciones button{
     flex:1; background:none; border:none; padding:10px 4px; font-size:0.85rem; cursor:pointer;
@@ -97,6 +111,7 @@
   .prod-acciones button:active{background:var(--bg);}
   .prod-acciones .enviar{color:var(--green);}
   .prod-acciones .editar{color:var(--blue);}
+  .prod-acciones .destacar{color:var(--amber);}
 
   .vacio{text-align:center; color:var(--muted); padding:60px 20px; font-size:0.9rem; grid-column:1/-1;}
   .vacio i{font-size:2.4rem; display:block; margin-bottom:12px; opacity:0.4;}
@@ -123,9 +138,30 @@
     width:100%; background:var(--bg); border:1px solid var(--border); border-radius:12px;
     padding:11px 13px; font-size:0.9rem; font-family:inherit; color:var(--text); outline:none;
   }
-  .campo input:focus, .campo textarea:focus{border-color:var(--blue);}
+  .campo input:focus, .campo textarea:focus, .campo select:focus{border-color:var(--blue);}
   .campo textarea{min-height:70px; resize:vertical;}
   .fila-2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .fila-3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;}
+
+  /* Switch de destacado/oferta */
+  .switch-row{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--bg); border:1px solid var(--border); border-radius:12px;
+    padding:11px 13px; margin-bottom:10px;
+  }
+  .switch-row .lbl{display:flex; flex-direction:column; gap:2px;}
+  .switch-row .lbl b{font-size:0.85rem; font-weight:700;}
+  .switch-row .lbl small{font-size:0.68rem; color:var(--muted);}
+  .switch{
+    position:relative; width:44px; height:24px; background:#CBD5E1; border-radius:999px;
+    cursor:pointer; transition:background .2s; flex-shrink:0;
+  }
+  .switch.on{background:var(--green);}
+  .switch::after{
+    content:''; position:absolute; left:2px; top:2px; width:20px; height:20px;
+    background:#fff; border-radius:50%; transition:transform .2s;
+  }
+  .switch.on::after{transform:translateX(20px);}
 
   .foto-zone{
     border:2px dashed var(--border); border-radius:16px; padding:14px; text-align:center;
@@ -144,6 +180,7 @@
   .btn.pri{background:linear-gradient(135deg, var(--blue), var(--purple)); color:#fff; box-shadow:0 4px 14px rgba(0,82,255,0.25);}
   .btn.peligro{background:rgba(239,68,68,0.1); color:var(--red);}
   .btn.wa{background:linear-gradient(135deg,#10B981,#059669); color:#fff;}
+  .btn.wa-share{background:linear-gradient(135deg,#25D366,#128C7E); color:#fff; box-shadow:0 4px 14px rgba(37,211,102,0.3);}
 
   /* Enviar: lista de clientes */
   .cli-lista{max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:14px; margin-bottom:12px;}
@@ -157,6 +194,10 @@
     padding:12px 14px; font-size:0.82rem; white-space:pre-wrap; margin-bottom:12px;
     max-height:180px; overflow-y:auto;
   }
+  .preview-foto{
+    width:80px; height:80px; object-fit:cover; border-radius:10px;
+    margin:0 auto 8px; display:block; border:1px solid var(--border);
+  }
   .toast{
     position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px);
     background:var(--text); color:#fff; padding:11px 20px; border-radius:14px;
@@ -164,22 +205,68 @@
   }
   .toast.show{transform:translateX(-50%) translateY(0);}
 
-  /* ===== Impresión: catálogo PDF ===== */
+  /* ===== Impresión: catálogo PDF profesional ===== */
   .solo-print{display:none;}
   @media print{
+    @page{ size: A4; margin: 12mm 10mm; }
     body *{visibility:hidden;}
-    .solo-print, .solo-print *{visibility:visible; display:block;}
-    .solo-print{position:absolute; top:0; left:0; width:100%;}
-    .print-head{text-align:center; padding:10px 0 16px; border-bottom:2px solid #0052FF; margin-bottom:16px;}
-    .print-head h1{margin:0; font-size:1.5rem; color:#0052FF;}
-    .print-head p{margin:2px 0 0; font-size:0.75rem; color:#555;}
-    .print-grid{display:grid !important; grid-template-columns:repeat(3, 1fr); gap:12px; visibility:visible;}
-    .print-item{border:1px solid #ddd; border-radius:10px; overflow:hidden; page-break-inside:avoid;}
-    .print-item img{width:100%; aspect-ratio:1/1; object-fit:cover; display:block;}
-    .print-item .pi-body{padding:8px 10px;}
-    .print-item .pi-nombre{font-size:0.75rem; font-weight:700;}
-    .print-item .pi-precio{font-size:0.85rem; font-weight:800; color:#059669;}
-    .print-item .pi-cat{font-size:0.6rem; color:#7C3AED; text-transform:uppercase; font-weight:700;}
+    .solo-print, .solo-print *{visibility:visible;}
+    .solo-print{display:block; position:absolute; top:0; left:0; width:100%;}
+
+    /* Portada */
+    .print-portada{
+      text-align:center; padding:30px 0 22px; border-bottom:3px solid #0052FF;
+      margin-bottom:18px; page-break-after:avoid;
+    }
+    .print-portada h1{margin:0 0 6px; font-size:2rem; color:#0052FF; font-weight:900; letter-spacing:-0.5px;}
+    .print-portada .logo{font-size:3rem; margin-bottom:6px;}
+    .print-portada p{margin:2px 0; font-size:0.78rem; color:#555;}
+    .print-portada .fecha{font-weight:700; color:#0F172A;}
+
+    /* Sección por categoría */
+    .print-cat-head{
+      background:#0052FF; color:#fff; padding:8px 14px; border-radius:8px;
+      margin:18px 0 10px; font-size:1rem; font-weight:800; text-transform:uppercase;
+      letter-spacing:0.5px; page-break-after:avoid;
+    }
+    .print-cat-head:first-of-type{margin-top:0;}
+
+    /* Grid de productos en PDF */
+    .print-grid{display:grid !important; grid-template-columns:repeat(2, 1fr); gap:14px; visibility:visible;}
+    .print-item{
+      border:1px solid #ddd; border-radius:12px; overflow:hidden; page-break-inside:avoid;
+      display:flex; flex-direction:column; background:#fff;
+    }
+    .print-item.agotado{opacity:0.85;}
+    .print-item.destacado{border:2px solid #F59E0B; box-shadow:0 2px 8px rgba(245,158,11,0.15);}
+    .print-img-wrap{position:relative; aspect-ratio:4/3; background:#F1F5F9; overflow:hidden;}
+    .print-img-wrap img{width:100%; height:100%; object-fit:cover; display:block;}
+    .print-img-ph{width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:3rem; color:#94A3B8;}
+    .print-badge-pdf{
+      position:absolute; top:8px; right:8px; font-size:0.6rem; font-weight:800;
+      padding:3px 8px; border-radius:6px; color:#fff; text-transform:uppercase;
+    }
+    .print-badge-pdf.oferta{background:#DC2626;}
+    .print-badge-pdf.agotado{background:#7F1D1D;}
+    .print-badge-pdf.destacado{background:#F59E0B; color:#78350F;}
+    .print-item .pi-body{padding:10px 12px 12px; flex:1; display:flex; flex-direction:column;}
+    .print-item .pi-cat{font-size:0.6rem; color:#7C3AED; text-transform:uppercase; font-weight:800; letter-spacing:0.5px; margin-bottom:3px;}
+    .print-item .pi-nombre{font-size:0.92rem; font-weight:800; color:#0F172A; line-height:1.25; margin-bottom:4px;}
+    .print-item .pi-desc{font-size:0.72rem; color:#475569; line-height:1.4; margin-bottom:6px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;}
+    .print-item .pi-precios{margin-top:auto; display:flex; flex-direction:column; gap:2px;}
+    .print-item .pi-precio-oferta{font-size:0.7rem; color:#94A3B8; text-decoration:line-through;}
+    .print-item .pi-precio{font-size:1.1rem; font-weight:900; color:#059669;}
+    .print-item .pi-precio.oferta{color:#DC2626;}
+    .print-item .pi-ahorro{font-size:0.65rem; font-weight:700; color:#F59E0B;}
+    .print-item.agotado .pi-precio{color:#7F1D1D;}
+
+    /* Footer PDF */
+    .print-footer{
+      margin-top:22px; padding-top:14px; border-top:2px solid #0052FF;
+      text-align:center; font-size:0.72rem; color:#555; page-break-inside:avoid;
+    }
+    .print-footer .contacto{font-weight:700; color:#0052FF; margin-bottom:4px;}
+    .print-footer .redes{margin-top:6px; font-size:0.68rem; color:#888;}
   }
 
   /* ===== Escritorio — al final (regla de oro #3) ===== */
@@ -230,13 +317,34 @@
         <div class="campo"><label>Categoría</label><input id="pCategoria" list="cats" placeholder="Ej: Salud"><datalist id="cats"></datalist></div>
       </div>
       <div class="campo"><label>Descripción (opcional)</label><textarea id="pDesc" placeholder="Detalles, beneficios, tallas..."></textarea></div>
-      <div class="campo"><label>Estado</label>
-        <select id="pEstado">
-          <option value="activo">✅ Activo (visible y disponible)</option>
-          <option value="agotado">⛔ Agotado (visible, sin stock)</option>
-          <option value="oculto">👁️ Oculto (no sale en el catálogo PDF)</option>
-        </select>
+      <div class="fila-2">
+        <div class="campo"><label>Estado</label>
+          <select id="pEstado">
+            <option value="activo">✅ Activo (visible y disponible)</option>
+            <option value="agotado">⛔ Agotado (visible, sin stock)</option>
+            <option value="oculto">👁️ Oculto (no sale en el catálogo PDF)</option>
+            <option value="proximo">🔄 Próximamente (visible, avisa que viene)</option>
+          </select>
+        </div>
+        <div class="campo"><label>SKU / Código (opcional)</label><input id="pSku" placeholder="Ej: MATE-001"></div>
       </div>
+
+      <div class="switch-row" onclick="toggleOferta(event)">
+        <div class="lbl"><b>🔥 Activar oferta</b><small>Mostrar precio anterior tachado y badge de oferta</small></div>
+        <div class="switch" id="swOferta"></div>
+      </div>
+      <div id="ofertaCampos" style="display:none;">
+        <div class="fila-2">
+          <div class="campo"><label>Precio oferta S/</label><input id="pPrecioOferta" type="number" inputmode="decimal" placeholder="79.90"></div>
+          <div class="campo"><label>% Descuento</label><input id="pDescuento" type="number" inputmode="decimal" placeholder="20" readonly style="background:#F1F5F9;"></div>
+        </div>
+      </div>
+
+      <div class="switch-row" onclick="toggleDestacado(event)">
+        <div class="lbl"><b>⭐ Marcar como destacado</b><small>Aparece primero en el catálogo y con badge dorado</small></div>
+        <div class="switch" id="swDestacado"></div>
+      </div>
+
       <div class="hoja-btns">
         <button class="btn peligro" id="btnEliminar" onclick="eliminarProducto()" style="display:none;"><i class="fa-solid fa-trash"></i></button>
         <button class="btn sec" onclick="cerrar('mEditor')">Cancelar</button>
@@ -259,7 +367,8 @@
       <div class="preview-msg" id="previewMsg"></div>
       <div class="hoja-btns">
         <button class="btn sec" onclick="copiarMensaje()"><i class="fa-regular fa-copy"></i> Copiar</button>
-        <button class="btn wa" id="btnWA" onclick="enviarWA()"><i class="fa-brands fa-whatsapp"></i> Abrir WhatsApp</button>
+        <button class="btn wa" id="btnWA" onclick="enviarWA()"><i class="fa-brands fa-whatsapp"></i> Solo texto</button>
+        <button class="btn wa-share" id="btnWAImg" onclick="enviarWAConImagen()"><i class="fa-solid fa-share-nodes"></i> Con foto</button>
       </div>
     </div>
   </div>
@@ -312,15 +421,28 @@ function precioTxt(p){
   var n = parseFloat(p);
   return isNaN(n) ? '' : 'S/ ' + n.toFixed(2).replace(/\.00$/,'');
 }
+function calcularDescuento(precio, oferta){
+  var p = parseFloat(precio), o = parseFloat(oferta);
+  if(!p || !o || o >= p) return 0;
+  return Math.round((p - o) / p * 100);
+}
+function ahorroTxt(precio, oferta){
+  var p = parseFloat(precio), o = parseFloat(oferta);
+  if(!p || !o || o >= p) return '';
+  return 'Ahorra S/ ' + (p - o).toFixed(2).replace(/\.00$/,'') + ' (' + calcularDescuento(p,o) + '% OFF)';
+}
 
 // ===== Estado =====
 var productos = {};     // id -> producto
 var clientes = {};      // tel -> cliente (para enviar)
 var filtroCat = 'todas';
+var soloOfertas = false;
 var editandoId = null;
 var fotoActual = '';    // base64 comprimida del editor
 var prodEnviar = null;
 var cliSeleccionado = null;
+var ofertaActiva = false;
+var destacadoActivo = false;
 
 // ===== Cargar productos en vivo =====
 db.collection('catalogo_productos').onSnapshot(function(snap){
@@ -355,9 +477,15 @@ function render(){
   // Categorías dinámicas
   var cats = {};
   arr.forEach(function(p){ if(p.categoria) cats[p.categoria] = (cats[p.categoria]||0)+1; });
-  var fh = '<div class="chip' + (filtroCat==='todas'?' activo':'') + '" onclick="setCat(\'todas\', this)">Todas</div>';
+  var fh = '<div class="chip' + (filtroCat==='todas' && !soloOfertas?' activo':'') + '" onclick="setCat(\'todas\', this)">Todas</div>';
+  if(Object.keys(cats).length > 0){
+    var hayOfertas = arr.some(function(p){ return p.oferta && p.precioOferta; });
+    if(hayOfertas){
+      fh += '<div class="chip oferta' + (soloOfertas?' activo':'') + '" onclick="setSoloOfertas(this)">🔥 Ofertas</div>';
+    }
+  }
   Object.keys(cats).sort().forEach(function(c){
-    fh += '<div class="chip' + (filtroCat===c?' activo':'') + '" onclick="setCat(\'' + escapeHtml(c).replace(/'/g,"\\'") + '\', this)">' + escapeHtml(c) + ' <span style="opacity:0.6;">' + cats[c] + '</span></div>';
+    fh += '<div class="chip' + (filtroCat===c && !soloOfertas?' activo':'') + '" onclick="setCat(\'' + escapeHtml(c).replace(/'/g,"\\'") + '\', this)">' + escapeHtml(c) + ' <span style="opacity:0.6;">' + cats[c] + '</span></div>';
   });
   document.getElementById('filtros').innerHTML = fh;
   // datalist del editor
@@ -365,53 +493,113 @@ function render(){
   Object.keys(cats).sort().forEach(function(c){ dl += '<option value="' + escapeHtml(c) + '">'; });
   document.getElementById('cats').innerHTML = dl;
 
-  if(filtroCat !== 'todas') arr = arr.filter(function(p){ return p.categoria === filtroCat; });
+  if(soloOfertas) arr = arr.filter(function(p){ return p.oferta && p.precioOferta; });
+  if(filtroCat !== 'todas' && !soloOfertas) arr = arr.filter(function(p){ return p.categoria === filtroCat; });
   if(q) arr = arr.filter(function(p){
     return (p.nombre||'').toLowerCase().indexOf(q) !== -1
         || (p.categoria||'').toLowerCase().indexOf(q) !== -1
-        || (p.desc||'').toLowerCase().indexOf(q) !== -1;
+        || (p.desc||'').toLowerCase().indexOf(q) !== -1
+        || (p.sku||'').toLowerCase().indexOf(q) !== -1;
   });
 
-  // Orden: activos primero, luego agotados, ocultos al final; alfabético dentro
-  var peso = { activo:0, agotado:1, oculto:2 };
+  // Orden: destacados primero, luego activos, agotados, próximos, ocultos al final; alfabético dentro
+  var peso = { activo:1, agotado:2, proximo:3, oculto:4 };
   arr.sort(function(a,b){
-    var pa = peso[a.estado||'activo'], pb = peso[b.estado||'activo'];
+    // Destacados primero (peso 0 si destacado, sino su estado)
+    var pa = a.destacado ? 0 : (peso[a.estado||'activo'] || 1);
+    var pb = b.destacado ? 0 : (peso[b.estado||'activo'] || 1);
     if(pa !== pb) return pa - pb;
     return (a.nombre||'').localeCompare(b.nombre||'');
   });
 
   var total = Object.keys(productos).length;
-  var activos = 0;
-  Object.keys(productos).forEach(function(k){ if((productos[k].estado||'activo')==='activo') activos++; });
-  document.getElementById('contador').textContent = '· ' + activos + ' activos de ' + total;
+  var activos = 0, enOferta = 0;
+  Object.keys(productos).forEach(function(k){
+    var p = productos[k];
+    if((p.estado||'activo')==='activo') activos++;
+    if(p.oferta && p.precioOferta) enOferta++;
+  });
+  document.getElementById('contador').textContent = '· ' + activos + ' activos · ' + enOferta + ' en oferta · ' + total + ' total';
 
   document.getElementById('vacio').style.display = arr.length ? 'none' : 'block';
   var h = '';
   arr.forEach(function(p){
     var est = p.estado || 'activo';
-    h += '<div class="prod ' + est + '">';
-    if(est === 'agotado') h += '<span class="prod-badge agotado">Agotado</span>';
-    if(est === 'oculto') h += '<span class="prod-badge oculto">Oculto</span>';
+    var tieneOferta = p.oferta && p.precioOferta && parseFloat(p.precioOferta) < parseFloat(p.precio);
+    h += '<div class="prod ' + est + (p.destacado ? ' destacado' : '') + '">';
+    if(est === 'agotado') h += '<span class="prod-badge agotado">⛔ Agotado</span>';
+    if(est === 'proximo') h += '<span class="prod-badge agotado" style="background:rgba(91,141,239,0.92);">🔄 Próximo</span>';
+    if(est === 'oculto') h += '<span class="prod-badge oculto">👁️ Oculto</span>';
+    if(tieneOferta) h += '<span class="prod-badge oferta">🔥 OFERTA</span>';
+    else if(p.destacado) h += '<span class="prod-badge destacado">⭐ TOP</span>';
+    h += '<div class="prod-foto-wrap">';
     if(p.fotoBase64){
       h += '<img class="prod-foto" src="' + p.fotoBase64 + '" onclick="abrirEditor(\'' + p._id + '\')" alt="">';
     } else {
       h += '<div class="prod-foto-ph" style="background:' + colorDe(p.nombre||'?') + '" onclick="abrirEditor(\'' + p._id + '\')">📦</div>';
     }
+    h += '</div>';
     h += '<div class="prod-body">';
     if(p.categoria) h += '<span class="prod-cat">' + escapeHtml(p.categoria) + '</span>';
     h += '<span class="prod-nombre">' + escapeHtml(p.nombre||'') + '</span>';
-    h += '<span class="prod-precio">' + precioTxt(p.precio) + '</span>';
+    if(p.desc) h += '<span class="prod-desc-mini">' + escapeHtml(p.desc) + '</span>';
+    h += '<div class="prod-precios">';
+    if(tieneOferta){
+      h += '<span class="prod-precio-oferta">' + precioTxt(p.precio) + '</span>';
+      h += '<span class="prod-precio oferta">' + precioTxt(p.precioOferta) + '</span>';
+      h += '<span class="prod-ahorro">' + ahorroTxt(p.precio, p.precioOferta) + '</span>';
+    } else {
+      h += '<span class="prod-precio">' + precioTxt(p.precio) + '</span>';
+    }
+    h += '</div>';
     h += '</div>';
     h += '<div class="prod-acciones">';
     h += '<button class="enviar" onclick="abrirEnviar(\'' + p._id + '\')" title="Enviar por WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>';
     h += '<button class="editar" onclick="abrirEditor(\'' + p._id + '\')" title="Editar"><i class="fa-solid fa-pen"></i></button>';
+    h += '<button class="destacar" onclick="toggleDestacadoProd(\'' + p._id + '\')" title="Destacar sí/no"><i class="fa-solid fa-star"></i></button>';
     h += '<button onclick="toggleAgotado(\'' + p._id + '\')" title="Agotado sí/no"><i class="fa-solid fa-box-open"></i></button>';
     h += '</div></div>';
   });
   document.getElementById('grid').innerHTML = h;
 }
-function setCat(c, el){ filtroCat = c; render(); }
+function setCat(c, el){
+  filtroCat = c; soloOfertas = false; render();
+}
+function setSoloOfertas(el){
+  soloOfertas = true; filtroCat = 'todas'; render();
+}
 document.getElementById('buscador').addEventListener('input', render);
+
+// ===== Switches de oferta y destacado en el editor =====
+function toggleOferta(e){
+  if(e) e.stopPropagation();
+  ofertaActiva = !ofertaActiva;
+  var sw = document.getElementById('swOferta');
+  if(ofertaActiva){ sw.classList.add('on'); }
+  else { sw.classList.remove('on'); }
+  document.getElementById('ofertaCampos').style.display = ofertaActiva ? 'block' : 'none';
+  // Auto-rellenar descuento al cambiar
+  if(ofertaActiva){
+    var p = parseFloat(document.getElementById('pPrecio').value);
+    var o = parseFloat(document.getElementById('pPrecioOferta').value);
+    if(p && o) document.getElementById('pDescuento').value = calcularDescuento(p, o);
+  }
+}
+function toggleDestacado(e){
+  if(e) e.stopPropagation();
+  destacadoActivo = !destacadoActivo;
+  var sw = document.getElementById('swDestacado');
+  if(destacadoActivo){ sw.classList.add('on'); }
+  else { sw.classList.remove('on'); }
+}
+// Auto-calcular descuento cuando cambian los precios
+document.addEventListener('input', function(e){
+  if(e.target.id === 'pPrecio' || e.target.id === 'pPrecioOferta'){
+    var p = parseFloat(document.getElementById('pPrecio').value);
+    var o = parseFloat(document.getElementById('pPrecioOferta').value);
+    if(p && o) document.getElementById('pDescuento').value = calcularDescuento(p, o);
+  }
+});
 
 // ===== Foto: compresión con canvas (regla: base64 chico, no inflar Firestore) =====
 document.getElementById('fotoInput').addEventListener('change', function(){
@@ -431,7 +619,6 @@ document.getElementById('fotoInput').addEventListener('change', function(){
       canvas.width = w; canvas.height = hh;
       canvas.getContext('2d').drawImage(img, 0, 0, w, hh);
       var out = canvas.toDataURL('image/jpeg', 0.78);
-      // Si aún pesa mucho (>300KB aprox), bajar calidad
       if(out.length > 400000) out = canvas.toDataURL('image/jpeg', 0.6);
       fotoActual = out;
       document.getElementById('fotoZone').innerHTML = '<img src="' + out + '" alt=""><span style="font-size:0.7rem;">Toca para cambiar</span>';
@@ -445,6 +632,8 @@ document.getElementById('fotoInput').addEventListener('change', function(){
 function abrirEditor(id){
   editandoId = id;
   fotoActual = '';
+  ofertaActiva = false;
+  destacadoActivo = false;
   var p = id ? productos[id] : null;
   document.getElementById('editorTitulo').textContent = p ? 'Editar producto' : 'Nuevo producto';
   document.getElementById('pNombre').value = p ? (p.nombre||'') : '';
@@ -452,6 +641,18 @@ function abrirEditor(id){
   document.getElementById('pCategoria').value = p ? (p.categoria||'') : '';
   document.getElementById('pDesc').value = p ? (p.desc||'') : '';
   document.getElementById('pEstado').value = p ? (p.estado||'activo') : 'activo';
+  document.getElementById('pSku').value = p ? (p.sku||'') : '';
+  document.getElementById('pPrecioOferta').value = p ? (p.precioOferta||'') : '';
+  document.getElementById('pDescuento').value = '';
+  // Switches
+  if(p && p.oferta && p.precioOferta){
+    ofertaActiva = true;
+    document.getElementById('pDescuento').value = calcularDescuento(p.precio, p.precioOferta);
+  }
+  if(p && p.destacado) destacadoActivo = true;
+  document.getElementById('swOferta').classList.toggle('on', ofertaActiva);
+  document.getElementById('swDestacado').classList.toggle('on', destacadoActivo);
+  document.getElementById('ofertaCampos').style.display = ofertaActiva ? 'block' : 'none';
   document.getElementById('btnEliminar').style.display = p ? 'block' : 'none';
   if(p && p.fotoBase64){
     fotoActual = p.fotoBase64;
@@ -474,9 +675,16 @@ function guardarProducto(){
     categoria: document.getElementById('pCategoria').value.trim(),
     desc: document.getElementById('pDesc').value.trim(),
     estado: document.getElementById('pEstado').value,
+    sku: document.getElementById('pSku').value.trim(),
     fotoBase64: fotoActual || '',
+    destacado: destacadoActivo,
+    oferta: ofertaActiva,
+    precioOferta: ofertaActiva ? parseFloat(document.getElementById('pPrecioOferta').value) || 0 : 0,
     actualizado: Date.now()
   };
+  if(ofertaActiva && data.precioOferta && data.precioOferta >= precio){
+    mostrarToast('El precio de oferta debe ser menor al normal'); return;
+  }
   var op;
   if(editandoId){
     op = db.collection('catalogo_productos').doc(editandoId).set(data, { merge: true });
@@ -506,15 +714,32 @@ function toggleAgotado(id){
     mostrarToast(nuevo === 'agotado' ? 'Marcado como agotado ⛔' : 'De vuelta en stock ✅');
   });
 }
+function toggleDestacadoProd(id){
+  var p = productos[id]; if(!p) return;
+  db.collection('catalogo_productos').doc(id).set({ destacado: !p.destacado }, { merge: true }).then(function(){
+    mostrarToast(p.destacado ? 'Quitado de destacados' : 'Marcado como destacado ⭐');
+  });
+}
 
 // ===== Enviar por WhatsApp =====
 function mensajeDe(p, nombreCli){
+  var tieneOferta = p.oferta && p.precioOferta && parseFloat(p.precioOferta) < parseFloat(p.precio);
   var m = '🛍️ ¡Hola' + (nombreCli ? ', *' + nombreCli + '*' : '') + '! 👋\n\n';
   m += 'Te comparto este producto:\n\n';
   m += '📦 *' + (p.nombre||'') + '*\n';
+  if(p.sku) m += '🔖 SKU: `' + p.sku + '`\n';
   if(p.desc) m += '_' + p.desc + '_\n';
-  m += '\n💰 Precio: *' + precioTxt(p.precio) + '*\n';
+  m += '\n';
+  if(tieneOferta){
+    m += '💰 Precio normal: ~S/ ' + parseFloat(p.precio).toFixed(2) + '~\n';
+    m += '🔥 *OFERTA: S/ ' + parseFloat(p.precioOferta).toFixed(2) + '*\n';
+    m += '💎 ' + ahorroTxt(p.precio, p.precioOferta) + '\n';
+  } else {
+    m += '💰 Precio: *' + precioTxt(p.precio) + '*\n';
+  }
   if(p.estado === 'agotado') m += '\n⚠️ _Por ahora agotado — puedo avisarte cuando llegue._\n';
+  if(p.estado === 'proximo') m += '\n🔄 _Próximamente disponible — te aviso cuando esté listo._\n';
+  if(p.destacado) m += '\n⭐ _Producto destacado de nuestro catálogo_\n';
   m += '\n¿Te interesa? Escríbeme y coordinamos la entrega 🚚';
   return m;
 }
@@ -559,11 +784,18 @@ function selCliente(tel){
 }
 function actualizarPreview(){
   if(!prodEnviar) return;
-  document.getElementById('previewMsg').textContent = mensajeDe(prodEnviar, cliSeleccionado ? cliSeleccionado.nombre : '');
+  var msg = mensajeDe(prodEnviar, cliSeleccionado ? cliSeleccionado.nombre : '');
+  var html = '';
+  if(prodEnviar.fotoBase64) html += '<img class="preview-foto" src="' + prodEnviar.fotoBase64 + '" alt="">';
+  html += escapeHtml(msg).replace(/\n/g, '<br>');
+  // Resaltar negritas y cursivas WhatsApp en preview
+  html = html.replace(/\*([^*]+)\*/g, '<b>$1</b>').replace(/_([^_]+)_/g, '<i>$1</i>').replace(/~([^~]+)~/g, '<s>$1</s>').replace(/`([^`]+)`/g, '<code>$1</code>');
+  document.getElementById('previewMsg').innerHTML = html;
   document.getElementById('btnWA').style.opacity = cliSeleccionado ? '1' : '0.5';
+  document.getElementById('btnWAImg').style.opacity = cliSeleccionado ? '1' : '0.5';
 }
 function copiarMensaje(){
-  var t = document.getElementById('previewMsg').textContent;
+  var t = mensajeDe(prodEnviar, cliSeleccionado ? cliSeleccionado.nombre : '');
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(t).then(function(){ mostrarToast('Mensaje copiado ✓'); });
   } else {
@@ -578,28 +810,126 @@ function enviarWA(){
   var t = mensajeDe(prodEnviar, cliSeleccionado.nombre);
   window.open('https://wa.me/51' + cliSeleccionado.tel + '?text=' + encodeURIComponent(t), '_blank');
 }
+// ===== Enviar WhatsApp CON IMAGEN usando Web Share API =====
+function enviarWAConImagen(){
+  if(!cliSeleccionado){ mostrarToast('Elige un cliente primero'); return; }
+  if(!prodEnviar.fotoBase64){ mostrarToast('Este producto no tiene foto. Usa "Solo texto"'); return; }
+  var t = mensajeDe(prodEnviar, cliSeleccionado.nombre);
+  // Convertir base64 a blob
+  var base64 = prodEnviar.fotoBase64.split(',')[1];
+  var byteChars = atob(base64);
+  var byteNumbers = new Array(byteChars.length);
+  for(var i=0; i<byteChars.length; i++){ byteNumbers[i] = byteChars.charCodeAt(i); }
+  var byteArray = new Uint8Array(byteNumbers);
+  var blob = new Blob([byteArray], { type: 'image/jpeg' });
+  var file = new File([blob], (prodEnviar.nombre||'producto').replace(/[^a-zA-Z0-9]/g,'_') + '.jpg', { type: 'image/jpeg' });
+  // Verificar si Web Share API con files está disponible
+  if(navigator.canShare && navigator.canShare({ files: [file] })){
+    navigator.share({
+      files: [file],
+      title: prodEnviar.nombre || 'Producto TrackVerse',
+      text: t
+    }).then(function(){
+      mostrarToast('Compartido ✓');
+    }).catch(function(e){
+      if(e.name !== 'AbortError'){
+        // Si falla, abrir WhatsApp con texto solo
+        window.open('https://wa.me/51' + cliSeleccionado.tel + '?text=' + encodeURIComponent(t), '_blank');
+      }
+    });
+  } else {
+    // Fallback: abrir WhatsApp con texto (sin imagen)
+    mostrarToast('Tu navegador no soporta compartir imagen. Abriendo con texto...');
+    setTimeout(function(){
+      window.open('https://wa.me/51' + cliSeleccionado.tel + '?text=' + encodeURIComponent(t), '_blank');
+    }, 1500);
+  }
+}
 
 // ===== Catálogo PDF (impresión nativa → Guardar como PDF) =====
 function imprimirCatalogo(){
   var arr = Object.keys(productos).map(function(k){ return productos[k]; })
-    .filter(function(p){ return (p.estado||'activo') !== 'oculto'; })
-    .sort(function(a,b){ return (a.categoria||'').localeCompare(b.categoria||'') || (a.nombre||'').localeCompare(b.nombre||''); });
-  if(!arr.length){ mostrarToast('No hay productos para el catálogo'); return; }
-  var fecha = new Date().toLocaleDateString('es-PE', {day:'2-digit', month:'long', year:'numeric'});
-  var h = '<div class="print-head"><h1>🛍️ Catálogo TrackVerse</h1><p>Actualizado: ' + fecha + ' · ' + arr.length + ' productos</p></div>';
-  h += '<div class="print-grid">';
-  arr.forEach(function(p){
-    h += '<div class="print-item">';
-    if(p.fotoBase64) h += '<img src="' + p.fotoBase64 + '" alt="">';
-    h += '<div class="pi-body">';
-    if(p.categoria) h += '<div class="pi-cat">' + escapeHtml(p.categoria) + '</div>';
-    h += '<div class="pi-nombre">' + escapeHtml(p.nombre||'') + (p.estado==='agotado' ? ' (agotado)' : '') + '</div>';
-    h += '<div class="pi-precio">' + precioTxt(p.precio) + '</div>';
-    h += '</div></div>';
+    .filter(function(p){ return (p.estado||'activo') !== 'oculto'; });
+
+  // Ordenar: destacados primero, luego por categoría, luego alfabético
+  arr.sort(function(a,b){
+    if(!!a.destacado !== !!b.destacado) return a.destacado ? -1 : 1;
+    var ca = (a.categoria||'ZZZ').toLowerCase();
+    var cb = (b.categoria||'ZZZ').toLowerCase();
+    if(ca !== cb) return ca.localeCompare(cb);
+    return (a.nombre||'').localeCompare(b.nombre||'');
   });
+
+  if(!arr.length){ mostrarToast('No hay productos para el catálogo'); return; }
+
+  var fecha = new Date().toLocaleDateString('es-PE', {day:'2-digit', month:'long', year:'numeric'});
+  var hora = new Date().toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
+
+  // Portada
+  var h = '<div class="print-portada">';
+  h += '<div class="logo">🛍️</div>';
+  h += '<h1>Catálogo TrackVerse</h1>';
+  h += '<p class="fecha">Actualizado: ' + fecha + ' · ' + hora + '</p>';
+  h += '<p>' + arr.length + ' productos · Tiendas MATE</p>';
   h += '</div>';
+
+  // Agrupar por categoría
+  var cats = {};
+  arr.forEach(function(p){
+    var c = p.categoria || 'Otros';
+    if(!cats[c]) cats[c] = [];
+    cats[c].push(p);
+  });
+
+  Object.keys(cats).sort().forEach(function(c){
+    h += '<div class="print-cat-head">' + escapeHtml(c) + ' (' + cats[c].length + ')</div>';
+    h += '<div class="print-grid">';
+    cats[c].forEach(function(p){
+      var est = p.estado || 'activo';
+      var tieneOferta = p.oferta && p.precioOferta && parseFloat(p.precioOferta) < parseFloat(p.precio);
+      h += '<div class="print-item ' + est + (p.destacado ? ' destacado' : '') + '">';
+      // Badges en la imagen
+      var badges = '';
+      if(tieneOferta) badges += '<div class="print-badge-pdf oferta">🔥 OFERTA</div>';
+      else if(p.destacado) badges += '<div class="print-badge-pdf destacado">⭐ TOP</div>';
+      if(est === 'agotado') badges += '<div class="print-badge-pdf agotado" style="left:8px;right:auto;">AGOTADO</div>';
+      if(est === 'proximo') badges += '<div class="print-badge-pdf agotado" style="background:#0052FF;left:8px;right:auto;">PRÓXIMO</div>';
+      // Imagen
+      h += '<div class="print-img-wrap">';
+      if(p.fotoBase64) h += '<img src="' + p.fotoBase64 + '" alt="">';
+      else h += '<div class="print-img-ph">📦</div>';
+      h += badges;
+      h += '</div>';
+      // Body
+      h += '<div class="pi-body">';
+      h += '<div class="pi-cat">' + escapeHtml(p.categoria||'') + '</div>';
+      h += '<div class="pi-nombre">' + escapeHtml(p.nombre||'') + '</div>';
+      if(p.desc) h += '<div class="pi-desc">' + escapeHtml(p.desc) + '</div>';
+      h += '<div class="pi-precios">';
+      if(tieneOferta){
+        h += '<div class="pi-precio-oferta">Antes: S/ ' + parseFloat(p.precio).toFixed(2) + '</div>';
+        h += '<div class="pi-precio oferta">S/ ' + parseFloat(p.precioOferta).toFixed(2) + '</div>';
+        h += '<div class="pi-ahorro">' + ahorroTxt(p.precio, p.precioOferta) + '</div>';
+      } else {
+        h += '<div class="pi-precio">' + precioTxt(p.precio) + '</div>';
+      }
+      h += '</div>';
+      if(p.sku) h += '<div style="font-size:0.6rem;color:#94A3B8;margin-top:4px;">SKU: ' + escapeHtml(p.sku) + '</div>';
+      h += '</div></div>';
+    });
+    h += '</div>';
+  });
+
+  // Footer con contacto
+  h += '<div class="print-footer">';
+  h += '<div class="contacto">📞 Contacto: +51 907 565 569 · WhatsApp</div>';
+  h += '<div>💳 Yape: 980 811 297 · A nombre de Lorenzo N. Tarazona T.</div>';
+  h += '<div>💳 Yape MATE: 956 203 893 · Corporación Medica Plan De Vida Sac</div>';
+  h += '<div class="redes">🚚 Entrega a domicilio · 🏪 Tiendas MATE · Sigue nuestras ofertas en WhatsApp</div>';
+  h += '</div>';
+
   document.getElementById('zonaPrint').innerHTML = h;
-  setTimeout(function(){ window.print(); }, 150);
+  setTimeout(function(){ window.print(); }, 200);
 }
 </script>
 </body>
