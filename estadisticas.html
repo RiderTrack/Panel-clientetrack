@@ -894,9 +894,18 @@ async function exportarExcel(){
   }
 }
 
-// ===== Funciones copiadas de RiderTrack (que SÍ funcionan en APK) =====
+// ===== Funciones copiadas de RiderTrack, adaptadas para funcionar DENTRO de un iframe =====
+// CLAVE: este módulo vive en un iframe dentro del panel. window.Capacitor solo
+// existe en la ventana PRINCIPAL (window.top), no en la del iframe. Por eso hay
+// que buscarlo también ahí antes de decir "no estamos en la app".
+function getCap(){
+  try{ if(typeof window.Capacitor !== 'undefined') return window.Capacitor; }catch(e){}
+  try{ if(window.top && typeof window.top.Capacitor !== 'undefined') return window.top.Capacitor; }catch(e){}
+  return null;
+}
 function esCapacitor(){
-  return typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+  var Cap = getCap();
+  return !!(Cap && Cap.isNativePlatform && Cap.isNativePlatform());
 }
 function esWebView(){
   var ua = navigator.userAgent || '';
@@ -912,11 +921,12 @@ function esWebView(){
 function descargaDirecta(blob, nombre){
   // ── Capacitor nativo ──
   if(esCapacitor()){
+    var Cap = getCap();
     var reader = new FileReader();
     reader.onload = function(e){
       var b64data = e.target.result.split(',')[1];
-      var FS = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem;
-      if(!FS){ mostrarToast('❌ Plugin no disponible'); return; }
+      var FS = Cap && Cap.Plugins && Cap.Plugins.Filesystem;
+      if(!FS){ mostrarToast('❌ Plugin Filesystem no disponible'); return; }
       FS.writeFile({path: nombre, data: b64data, directory: 'DOWNLOADS', recursive: true})
         .then(function(){ mostrarToast('✅ Guardado en Descargas: ' + nombre); })
         .catch(function(){
@@ -926,7 +936,7 @@ function descargaDirecta(blob, nombre){
               FS.writeFile({path: nombre, data: b64data, directory: 'CACHE', recursive: true})
                 .then(function(){
                   FS.getUri({path: nombre, directory: 'CACHE'}).then(function(u){
-                    var SH = window.Capacitor.Plugins.Share;
+                    var SH = Cap.Plugins.Share;
                     if(SH){ SH.share({title: nombre, url: u.uri, dialogTitle: 'Guardar ' + nombre}); }
                     else { mostrarToast('✅ ' + nombre + ' guardado'); }
                   });
