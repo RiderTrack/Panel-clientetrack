@@ -884,6 +884,50 @@ async function exportarExcel(){
   }
 }
 
+// ===== Detectar si estamos en APK (Capacitor) o en navegador =====
+function esAPK(){
+  return typeof window.Capacitor !== 'undefined' && window.Capacitor.isNative;
+}
+
+// ===== Compartir o descargar archivo según el entorno =====
+async function compartirOdescargar(blob, filename, mimeType){
+  // En APK: usar Web Share API con files (siempre funciona en Android)
+  if(esAPK()){
+    var file = new File([blob], filename, { type: mimeType || 'application/octet-stream' });
+    if(navigator.canShare && navigator.canShare({ files: [file] })){
+      try {
+        await navigator.share({
+          files: [file],
+          title: 'TrackVerse',
+          text: '📊 ' + filename
+        });
+        mostrarToast('Archivo compartido ✓');
+        return;
+      } catch(e){
+        if(e.name === 'AbortError') return; // usuario canceló
+        console.warn('Share falló, intentando descarga directa:', e.message);
+      }
+    }
+    // Si share no funciona, intentar abrir en nueva pestaña (a veces funciona en APK)
+    var url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    mostrarToast('Si no se descargó, mantén presionado el enlace para guardar');
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 10000);
+    return;
+  }
+
+  // En navegador (Chrome): usar descarga directa
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+  mostrarToast('Archivo descargado ✓');
+}
+
 // ===== Exportar con ExcelJS (incluye imágenes de gráficos) =====
 async function exportarConExcelJS(arr, conGraficos){
   var wb = new ExcelJS.Workbook();
@@ -1129,21 +1173,7 @@ async function exportarConExcelJS(arr, conGraficos){
   var blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   var fechaArchivo = new Date().toISOString().slice(0,10);
   var nombreArchivo = 'Estadisticas-TrackVerse-' + fechaArchivo + '.xlsx';
-  var file = new File([blob], nombreArchivo, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-
-  if(navigator.canShare && navigator.canShare({ files: [file] })){
-    navigator.share({
-      files: [file],
-      title: 'Estadísticas TrackVerse',
-      text: '📊 Estadísticas del ' + fechaArchivo
-    }).then(function(){
-      mostrarToast('Excel compartido ✓');
-    }).catch(function(e){
-      if(e.name !== 'AbortError') descargarArchivo(blob, nombreArchivo);
-    });
-  } else {
-    descargarArchivo(blob, nombreArchivo);
-  }
+  await compartirOdescargar(blob, nombreArchivo, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 }
 
 // ===== Fallback: SheetJS (sin imágenes pero con datos) =====
@@ -1183,7 +1213,7 @@ function exportarConSheetJS(arr){
   var blob = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   var fechaArchivo = new Date().toISOString().slice(0,10);
   var nombreArchivo = 'Estadisticas-TrackVerse-' + fechaArchivo + '.xlsx';
-  descargarArchivo(new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), nombreArchivo);
+  compartirOdescargar(new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), nombreArchivo, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 }
 
 // ===== Fallback último: CSV simple (siempre funciona) =====
@@ -1202,19 +1232,12 @@ function exportarCSV(arr){
   var csv = rows.map(function(r){ return r.map(function(c){ return '"' + String(c).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
   var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
   var fechaArchivo = new Date().toISOString().slice(0,10);
-  descargarArchivo(blob, 'Estadisticas-TrackVerse-' + fechaArchivo + '.csv');
+  compartirOdescargar(blob, 'Estadisticas-TrackVerse-' + fechaArchivo + '.csv', 'text/csv');
 }
 
 function descargarArchivo(blob, filename){
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
-  mostrarToast('Archivo descargado ✓');
+  // Mantener por compatibilidad pero redirigir a compartirOdescargar
+  compartirOdescargar(blob, filename);
 }
 
 // ===== Iniciar =====
