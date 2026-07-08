@@ -46,21 +46,22 @@ jobs:
       - name: Prepare Web Assets
         run: |
           mkdir -p www
-          cp index.html www/
-          cp clientetrack.html www/
-          cp clientes.html www/
-          cp pedidos.html www/
-          cp plantillas.html www/
-          cp configuracion.html www/
-          cp catalogo.html www/
-          cp estadisticas.html www/
+          cp index.html www/ 2>/dev/null || echo "⚠️ index.html no encontrado"
+          [ -f clientetrack.html ] && cp clientetrack.html www/ || echo "⚠️ clientetrack.html no encontrado (ok)"
+          [ -f clientes.html ] && cp clientes.html www/ || echo "⚠️ clientes.html no encontrado (ok)"
+          [ -f pedidos.html ] && cp pedidos.html www/ || echo "⚠️ pedidos.html no encontrado (ok)"
+          [ -f plantillas.html ] && cp plantillas.html www/ || echo "⚠️ plantillas.html no encontrado (ok)"
+          [ -f configuracion.html ] && cp configuracion.html www/ || echo "⚠️ configuracion.html no encontrado (ok)"
+          [ -f catalogo.html ] && cp catalogo.html www/ || echo "⚠️ catalogo.html no encontrado (ok)"
+          [ -f estadisticas.html ] && cp estadisticas.html www/ || echo "⚠️ estadisticas.html no encontrado (ok)"
+          echo "✅ Web assets copiados (los que existan)"
 
       - name: Add Android Platform
         run: npx cap add android
 
       - name: Add Android Permissions
         run: |
-          sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.CAMERA" />|' android/app/src/main/AndroidManifest.xml
+          sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />|' android/app/src/main/AndroidManifest.xml
           grep "uses-permission" android/app/src/main/AndroidManifest.xml
 
       - name: Set App Name to TrackVerse
