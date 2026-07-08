@@ -9,8 +9,12 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <!-- Chart.js para gráficos profesionales -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<!-- SheetJS para exportar Excel con estilos -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- html2canvas para capturar gráficos como imagen -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- ExcelJS para exportar Excel con imágenes (soporta insertar imágenes en celdas) -->
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<!-- SheetJS como fallback (CSV simple si ExcelJS falla) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
   :root{
@@ -827,164 +831,363 @@ function calcularTopClientes(arr){
     .sort(function(a,b){ return b.pedidos - a.pedidos; });
 }
 
-// ===== Exportar Excel con SheetJS =====
-function exportarExcel(){
+// ===== Exportar Excel con ExcelJS (incluye gráficos como imágenes) =====
+async function exportarExcel(){
+  console.log('exportarExcel: iniciando...');
   var arr = filtrarPorPeriodo(datos.todos || []);
   if(arr.length === 0){
     mostrarToast('Sin datos para exportar');
     return;
   }
-  mostrarToast('Generando Excel...');
 
-  setTimeout(function(){
-    try {
-      var wb = XLSX.utils.book_new();
+  // Verificar qué librerías están disponibles
+  var tieneExcelJS = typeof ExcelJS !== 'undefined';
+  var tieneSheetJS = typeof XLSX !== 'undefined';
+  var tieneHtml2Canvas = typeof html2canvas !== 'undefined';
+  console.log('Librerías:', { ExcelJS: tieneExcelJS, SheetJS: tieneSheetJS, html2canvas: tieneHtml2Canvas });
 
-      // ===== Hoja 1: Resumen =====
-      var entregados = arr.filter(function(c){ return clasificarEstado(c.st) === 'entregado'; });
-      var fallidos = arr.filter(function(c){ return clasificarEstado(c.st) === 'fallido'; });
-      var pendientes = arr.filter(function(c){ return clasificarEstado(c.st) === 'pendiente'; });
-      var montoTotal = entregados.reduce(function(s,c){ return s + montoDe(c.cobrar); }, 0);
-      var tasaExito = arr.length > 0 ? Math.round(entregados.length / arr.length * 100) : 0;
+  if(!tieneExcelJS && !tieneSheetJS){
+    mostrarToast('Error: no cargaron las librerías. Revisa tu conexión.');
+    return;
+  }
 
-      var resumenData = [
-        ['📊 ESTADÍSTICAS TRACKVERSE'],
-        ['Período:', periodoActual === 'hoy' ? 'Hoy' : periodoActual === '7d' ? 'Últimos 7 días' : periodoActual === '30d' ? 'Últimos 30 días' : 'Todo el historial'],
-        ['Generado:', new Date().toLocaleString('es-PE')],
-        [''],
-        ['MÉTRICA', 'VALOR'],
-        ['Total pedidos', arr.length],
-        ['Entregados', entregados.length],
-        ['Fallidos', fallidos.length],
-        ['Pendientes', pendientes.length],
-        ['Tasa de éxito', tasaExito + '%'],
-        ['Monto total cobrado', 'S/ ' + montoTotal.toFixed(2)],
-        ['Ticket promedio', 'S/ ' + (entregados.length > 0 ? (montoTotal/entregados.length).toFixed(2) : '0.00')],
-        ['']
-      ];
+  mostrarToast('Generando Excel... ⏳');
 
-      // Métodos de pago en el resumen
-      resumenData.push(['MÉTODOS DE PAGO']);
-      resumenData.push(['Método', 'Cantidad', 'Monto total']);
-      var metodosResumen = {};
-      entregados.forEach(function(c){
-        var label = etiquetaPago(c.st);
-        if(!metodosResumen[label]) metodosResumen[label] = { count: 0, monto: 0 };
-        metodosResumen[label].count++;
-        metodosResumen[label].monto += montoDe(c.cobrar);
-      });
-      Object.keys(metodosResumen).sort(function(a,b){ return metodosResumen[b].count - metodosResumen[a].count; }).forEach(function(m){
-        resumenData.push([m, metodosResumen[m].count, 'S/ ' + metodosResumen[m].monto.toFixed(2)]);
-      });
-
-      var ws1 = XLSX.utils.aoa_to_sheet(resumenData);
-      ws1['!cols'] = [{wch:25}, {wch:20}, {wch:15}];
-      // Estilo del título
-      if(ws1['A1']){
-        ws1['A1'].s = { font: { bold: true, sz: 16, color: { rgb: '0052FF' } } };
-      }
-      XLSX.utils.book_append_sheet(wb, ws1, 'Resumen');
-
-      // ===== Hoja 2: Detalle de entregas =====
-      var entregasData = [['Fecha', 'Hora', 'Cliente', 'Producto', 'Distrito', 'Dirección', 'Teléfono', 'Método de pago', 'Monto (S/)', 'Estado']];
-      var entregadosOrdenados = arr.slice().sort(function(a,b){ return (b._fecha||0) - (a._fecha||0); });
-      entregadosOrdenados.forEach(function(c){
-        var fecha = c._fecha ? new Date(c._fecha) : null;
-        entregasData.push([
-          fecha ? fecha.toLocaleDateString('es-PE') : '-',
-          fecha ? fecha.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'}) : '-',
-          c.nombre || 'Cliente',
-          c.prod || '-',
-          c.dist || '-',
-          c.dir || '-',
-          c.cel || '-',
-          etiquetaPago(c.st),
-          montoDe(c.cobrar).toFixed(2),
-          clasificarEstado(c.st)
-        ]);
-      });
-      var ws2 = XLSX.utils.aoa_to_sheet(entregasData);
-      ws2['!cols'] = [{wch:12}, {wch:8}, {wch:22}, {wch:25}, {wch:18}, {wch:30}, {wch:14}, {wch:14}, {wch:12}, {wch:12}];
-      XLSX.utils.book_append_sheet(wb, ws2, 'Detalle entregas');
-
-      // ===== Hoja 3: Top productos =====
-      var prodData = [['PRODUCTO', 'PEDIDOS ENTREGADOS', 'MONTO TOTAL (S/)']];
-      var prodConteo = {};
-      arr.forEach(function(c){
-        if(clasificarEstado(c.st) !== 'entregado') return;
-        var p = (c.prod || 'Sin nombre').trim() || 'Sin nombre';
-        if(!prodConteo[p]) prodConteo[p] = { count: 0, monto: 0 };
-        prodConteo[p].count++;
-        prodConteo[p].monto += montoDe(c.cobrar);
-      });
-      Object.keys(prodConteo).map(function(k){ return { nombre: k, count: prodConteo[k].count, monto: prodConteo[k].monto }; })
-        .sort(function(a,b){ return b.count - a.count; })
-        .forEach(function(p){
-          prodData.push([p.nombre, p.count, p.monto.toFixed(2)]);
-        });
-      var ws3 = XLSX.utils.aoa_to_sheet(prodData);
-      ws3['!cols'] = [{wch:30}, {wch:22}, {wch:18}];
-      XLSX.utils.book_append_sheet(wb, ws3, 'Top productos');
-
-      // ===== Hoja 4: Top distritos =====
-      var distData = [['DISTRITO', 'PEDIDOS', 'ENTREGADOS', 'TASA ÉXITO', 'MONTO TOTAL (S/)']];
-      var distConteo = {};
-      arr.forEach(function(c){
-        var d = (c.dist || 'Sin distrito').trim() || 'Sin distrito';
-        if(!distConteo[d]) distConteo[d] = { count: 0, entregados: 0, monto: 0 };
-        distConteo[d].count++;
-        if(clasificarEstado(c.st) === 'entregado'){
-          distConteo[d].entregados++;
-          distConteo[d].monto += montoDe(c.cobrar);
-        }
-      });
-      Object.keys(distConteo).map(function(k){ return Object.assign({nombre: k}, distConteo[k]); })
-        .sort(function(a,b){ return b.count - a.count; })
-        .forEach(function(d){
-          var tasa = d.count > 0 ? Math.round(d.entregados / d.count * 100) : 0;
-          distData.push([d.nombre, d.count, d.entregados, tasa + '%', d.monto.toFixed(2)]);
-        });
-      var ws4 = XLSX.utils.aoa_to_sheet(distData);
-      ws4['!cols'] = [{wch:25}, {wch:12}, {wch:14}, {wch:14}, {wch:18}];
-      XLSX.utils.book_append_sheet(wb, ws4, 'Top distritos');
-
-      // ===== Hoja 5: Top clientes =====
-      var cliData = [['CLIENTE', 'TELÉFONO', 'DISTRITO', 'PEDIDOS', 'MONTO TOTAL (S/)']];
-      calcularTopClientes(arr).forEach(function(c){
-        cliData.push([c.nombre, c.tel || '-', c.distrito || '-', c.pedidos, c.monto.toFixed(2)]);
-      });
-      var ws5 = XLSX.utils.aoa_to_sheet(cliData);
-      ws5['!cols'] = [{wch:25}, {wch:14}, {wch:18}, {wch:12}, {wch:18}];
-      XLSX.utils.book_append_sheet(wb, ws5, 'Top clientes');
-
-      // ===== Generar archivo =====
-      var fechaArchivo = new Date().toISOString().slice(0,10);
-      var nombreArchivo = 'Estadisticas-TrackVerse-' + fechaArchivo + '.xlsx';
-
-      // Intentar Web Share API primero (en APK)
-      var blob = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-      var file = new File([blob], nombreArchivo, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      if(navigator.canShare && navigator.canShare({ files: [file] })){
-        navigator.share({
-          files: [file],
-          title: 'Estadísticas TrackVerse',
-          text: '📊 Estadísticas del ' + fechaArchivo
-        }).then(function(){
-          mostrarToast('Excel compartido ✓');
-        }).catch(function(e){
-          if(e.name !== 'AbortError') descargarExcel(blob, nombreArchivo);
-        });
-      } else {
-        descargarExcel(blob, nombreArchivo);
-      }
-    } catch(e){
-      mostrarToast('Error: ' + e.message);
-      console.error(e);
+  try {
+    if(tieneExcelJS){
+      await exportarConExcelJS(arr, tieneHtml2Canvas);
+    } else {
+      exportarConSheetJS(arr);
     }
-  }, 100);
+  } catch(e){
+    console.error('Error exportando:', e);
+    mostrarToast('Error: ' + e.message + ' — intentando CSV simple...');
+    setTimeout(function(){ exportarCSV(arr); }, 1000);
+  }
 }
 
-function descargarExcel(blob, filename){
+// ===== Exportar con ExcelJS (incluye imágenes de gráficos) =====
+async function exportarConExcelJS(arr, conGraficos){
+  var wb = new ExcelJS.Workbook();
+  wb.creator = 'TrackVerse';
+  wb.created = new Date();
+
+  var entregados = arr.filter(function(c){ return clasificarEstado(c.st) === 'entregado'; });
+  var fallidos = arr.filter(function(c){ return clasificarEstado(c.st) === 'fallido'; });
+  var pendientes = arr.filter(function(c){ return clasificarEstado(c.st) === 'pendiente'; });
+  var montoTotal = entregados.reduce(function(s,c){ return s + montoDe(c.cobrar); }, 0);
+  var tasaExito = arr.length > 0 ? Math.round(entregados.length / arr.length * 100) : 0;
+  var periodoTxt = periodoActual === 'hoy' ? 'Hoy' : periodoActual === '7d' ? 'Últimos 7 días' : periodoActual === '30d' ? 'Últimos 30 días' : 'Todo el historial';
+
+  // ===== Hoja 1: Resumen =====
+  var ws1 = wb.addWorksheet('Resumen', { properties: { tabColor: { argb: 'FF0052FF' } } });
+  // Título
+  ws1.mergeCells('A1:C1');
+  var cellTitulo = ws1.getCell('A1');
+  cellTitulo.value = '📊 ESTADÍSTICAS TRACKVERSE';
+  cellTitulo.font = { bold: true, size: 16, color: { argb: 'FF0052FF' } };
+  cellTitulo.alignment = { horizontal: 'center' };
+  // Info
+  ws1.getCell('A2').value = 'Período:';
+  ws1.getCell('B2').value = periodoTxt;
+  ws1.getCell('A3').value = 'Generado:';
+  ws1.getCell('B3').value = new Date().toLocaleString('es-PE');
+  // Métricas
+  var fila = 5;
+  var metricas = [
+    ['Total pedidos', arr.length],
+    ['Entregados', entregados.length],
+    ['Fallidos', fallidos.length],
+    ['Pendientes', pendientes.length],
+    ['Tasa de éxito', tasaExito + '%'],
+    ['Monto total cobrado', 'S/ ' + montoTotal.toFixed(2)],
+    ['Ticket promedio', 'S/ ' + (entregados.length > 0 ? (montoTotal/entregados.length).toFixed(2) : '0.00')]
+  ];
+  ws1.getCell('A' + fila).value = 'MÉTRICA';
+  ws1.getCell('B' + fila).value = 'VALOR';
+  ws1.getCell('A' + fila).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  ws1.getCell('B' + fila).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  ws1.getCell('A' + fila).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0052FF' } };
+  ws1.getCell('B' + fila).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0052FF' } };
+  fila++;
+  metricas.forEach(function(m){
+    ws1.getCell('A' + fila).value = m[0];
+    ws1.getCell('B' + fila).value = m[1];
+    ws1.getCell('A' + fila).font = { bold: true };
+    fila++;
+  });
+  // Métodos de pago
+  fila += 1;
+  ws1.getCell('A' + fila).value = 'MÉTODOS DE PAGO';
+  ws1.getCell('A' + fila).font = { bold: true, size: 12, color: { argb: 'FF0052FF' } };
+  fila++;
+  ws1.getCell('A' + fila).value = 'Método';
+  ws1.getCell('B' + fila).value = 'Cantidad';
+  ws1.getCell('C' + fila).value = 'Monto total';
+  ['A','B','C'].forEach(function(col){
+    ws1.getCell(col + fila).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    ws1.getCell(col + fila).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF10B981' } };
+  });
+  fila++;
+  var metodosResumen = {};
+  entregados.forEach(function(c){
+    var label = etiquetaPago(c.st);
+    if(!metodosResumen[label]) metodosResumen[label] = { count: 0, monto: 0 };
+    metodosResumen[label].count++;
+    metodosResumen[label].monto += montoDe(c.cobrar);
+  });
+  Object.keys(metodosResumen).sort(function(a,b){ return metodosResumen[b].count - metodosResumen[a].count; }).forEach(function(m){
+    ws1.getCell('A' + fila).value = m;
+    ws1.getCell('B' + fila).value = metodosResumen[m].count;
+    ws1.getCell('C' + fila).value = 'S/ ' + metodosResumen[m].monto.toFixed(2);
+    fila++;
+  });
+  ws1.columns = [{ width: 28 }, { width: 18 }, { width: 18 }];
+
+  // ===== Hoja 2: Detalle de entregas =====
+  var ws2 = wb.addWorksheet('Detalle entregas', { properties: { tabColor: { argb: 'FF10B981' } } });
+  var headers2 = ['Fecha', 'Hora', 'Cliente', 'Producto', 'Distrito', 'Dirección', 'Teléfono', 'Método de pago', 'Monto (S/)', 'Estado'];
+  headers2.forEach(function(h, i){
+    var cell = ws2.getCell(1, i + 1);
+    cell.value = h;
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0052FF' } };
+    cell.alignment = { horizontal: 'center' };
+  });
+  var entregadosOrdenados = arr.slice().sort(function(a,b){ return (b._fecha||0) - (a._fecha||0); });
+  entregadosOrdenados.forEach(function(c, idx){
+    var fecha = c._fecha ? new Date(c._fecha) : null;
+    var row = idx + 2;
+    ws2.getCell(row, 1).value = fecha ? fecha.toLocaleDateString('es-PE') : '-';
+    ws2.getCell(row, 2).value = fecha ? fecha.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'}) : '-';
+    ws2.getCell(row, 3).value = c.nombre || 'Cliente';
+    ws2.getCell(row, 4).value = c.prod || '-';
+    ws2.getCell(row, 5).value = c.dist || '-';
+    ws2.getCell(row, 6).value = c.dir || '-';
+    ws2.getCell(row, 7).value = c.cel || '-';
+    ws2.getCell(row, 8).value = etiquetaPago(c.st);
+    ws2.getCell(row, 9).value = montoDe(c.cobrar);
+    ws2.getCell(row, 10).value = clasificarEstado(c.st);
+    // Colorear método de pago
+    var metodo = etiquetaPago(c.st);
+    var coloresMetodo = {
+      'Yape Rudy': 'FFD1FAE5',
+      'Yape Empresa': 'FFDBEAFE',
+      'Efectivo': 'FFFEF3C7',
+      'Mixto': 'FFEDE9FE',
+      'POS/Tarjeta': 'FFCFFAFE',
+      'Transferencia': 'FFFCE7F3'
+    };
+    if(coloresMetodo[metodo]){
+      ws2.getCell(row, 8).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: coloresMetodo[metodo] } };
+    }
+    // Colorear monto en verde
+    ws2.getCell(row, 9).font = { bold: true, color: { argb: 'FF059669' } };
+  });
+  ws2.columns = [
+    { width: 12 }, { width: 8 }, { width: 22 }, { width: 25 }, { width: 18 },
+    { width: 30 }, { width: 14 }, { width: 14 }, { width: 12 }, { width: 12 }
+  ];
+
+  // ===== Hoja 3: Top productos =====
+  var ws3 = wb.addWorksheet('Top productos', { properties: { tabColor: { argb: 'FFF59E0B' } } });
+  ['PRODUCTO', 'PEDIDOS', 'MONTO TOTAL (S/)'].forEach(function(h, i){
+    var cell = ws3.getCell(1, i + 1);
+    cell.value = h;
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF59E0B' } };
+  });
+  var prodConteo = {};
+  arr.forEach(function(c){
+    if(clasificarEstado(c.st) !== 'entregado') return;
+    var p = (c.prod || 'Sin nombre').trim() || 'Sin nombre';
+    if(!prodConteo[p]) prodConteo[p] = { count: 0, monto: 0 };
+    prodConteo[p].count++;
+    prodConteo[p].monto += montoDe(c.cobrar);
+  });
+  var filaProd = 2;
+  Object.keys(prodConteo).map(function(k){ return { nombre: k, count: prodConteo[k].count, monto: prodConteo[k].monto }; })
+    .sort(function(a,b){ return b.count - a.count; })
+    .forEach(function(p){
+      ws3.getCell(filaProd, 1).value = p.nombre;
+      ws3.getCell(filaProd, 2).value = p.count;
+      ws3.getCell(filaProd, 3).value = p.monto;
+      ws3.getCell(filaProd, 3).numFmt = '"S/ "0.00';
+      filaProd++;
+    });
+  ws3.columns = [{ width: 30 }, { width: 12 }, { width: 18 }];
+
+  // ===== Hoja 4: Top distritos =====
+  var ws4 = wb.addWorksheet('Top distritos', { properties: { tabColor: { argb: 'FF06B6D4' } } });
+  ['DISTRITO', 'PEDIDOS', 'ENTREGADOS', 'TASA ÉXITO', 'MONTO (S/)'].forEach(function(h, i){
+    var cell = ws4.getCell(1, i + 1);
+    cell.value = h;
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF06B6D4' } };
+  });
+  var distConteo = {};
+  arr.forEach(function(c){
+    var d = (c.dist || 'Sin distrito').trim() || 'Sin distrito';
+    if(!distConteo[d]) distConteo[d] = { count: 0, entregados: 0, monto: 0 };
+    distConteo[d].count++;
+    if(clasificarEstado(c.st) === 'entregado'){
+      distConteo[d].entregados++;
+      distConteo[d].monto += montoDe(c.cobrar);
+    }
+  });
+  var filaDist = 2;
+  Object.keys(distConteo).map(function(k){ return Object.assign({nombre: k}, distConteo[k]); })
+    .sort(function(a,b){ return b.count - a.count; })
+    .forEach(function(d){
+      var tasa = d.count > 0 ? Math.round(d.entregados / d.count * 100) : 0;
+      ws4.getCell(filaDist, 1).value = d.nombre;
+      ws4.getCell(filaDist, 2).value = d.count;
+      ws4.getCell(filaDist, 3).value = d.entregados;
+      ws4.getCell(filaDist, 4).value = tasa + '%';
+      ws4.getCell(filaDist, 5).value = d.monto;
+      ws4.getCell(filaDist, 5).numFmt = '"S/ "0.00';
+      filaDist++;
+    });
+  ws4.columns = [{ width: 25 }, { width: 12 }, { width: 14 }, { width: 14 }, { width: 18 }];
+
+  // ===== Hoja 5: Top clientes =====
+  var ws5 = wb.addWorksheet('Top clientes', { properties: { tabColor: { argb: 'FF7C3AED' } } });
+  ['CLIENTE', 'TELÉFONO', 'DISTRITO', 'PEDIDOS', 'MONTO (S/)'].forEach(function(h, i){
+    var cell = ws5.getCell(1, i + 1);
+    cell.value = h;
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF7C3AED' } };
+  });
+  var filaCli = 2;
+  calcularTopClientes(arr).forEach(function(c){
+    ws5.getCell(filaCli, 1).value = c.nombre;
+    ws5.getCell(filaCli, 2).value = c.tel || '-';
+    ws5.getCell(filaCli, 3).value = c.distrito || '-';
+    ws5.getCell(filaCli, 4).value = c.pedidos;
+    ws5.getCell(filaCli, 5).value = c.monto;
+    ws5.getCell(filaCli, 5).numFmt = '"S/ "0.00';
+    filaCli++;
+  });
+  ws5.columns = [{ width: 25 }, { width: 14 }, { width: 18 }, { width: 12 }, { width: 18 }];
+
+  // ===== Hoja 6: Gráficos (capturas de los charts) =====
+  if(conGraficos){
+    mostrarToast('Capturando gráficos... ⏳');
+    var ws6 = wb.addWorksheet('Gráficos', { properties: { tabColor: { argb: 'FFEF4444' } } });
+    ws6.getCell('A1').value = '📊 GRÁFICOS DEL PERÍODO';
+    ws6.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF0052FF' } };
+
+    // Capturar cada canvas de gráfico
+    var canvasIds = ['chartDias', 'chartEstados', 'chartPagos', 'chartHoras'];
+    var filaImg = 3;
+    for(var i = 0; i < canvasIds.length; i++){
+      var canvas = document.getElementById(canvasIds[i]);
+      if(canvas){
+        try {
+          var dataUrl = canvas.toDataURL('image/png');
+          var base64 = dataUrl.split(',')[1];
+          var imageId = wb.addImage({
+            base64: base64,
+            extension: 'png'
+          });
+          // Título del gráfico
+          var titulos = ['Entregas por día', 'Estados de entrega', 'Métodos de pago', 'Horas pico'];
+          ws6.getCell('A' + filaImg).value = titulos[i];
+          ws6.getCell('A' + filaImg).font = { bold: true, size: 12 };
+          filaImg += 1;
+          // Insertar imagen
+          ws6.addImage(imageId, 'A' + filaImg + ':H' + (filaImg + 18));
+          filaImg += 20;
+        } catch(e){
+          console.warn('No se pudo capturar', canvasIds[i], e.message);
+        }
+      }
+    }
+  }
+
+  // ===== Generar archivo =====
+  mostrarToast('Guardando Excel... ⏳');
+  var buffer = await wb.xlsx.writeBuffer();
+  var blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  var fechaArchivo = new Date().toISOString().slice(0,10);
+  var nombreArchivo = 'Estadisticas-TrackVerse-' + fechaArchivo + '.xlsx';
+  var file = new File([blob], nombreArchivo, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+  if(navigator.canShare && navigator.canShare({ files: [file] })){
+    navigator.share({
+      files: [file],
+      title: 'Estadísticas TrackVerse',
+      text: '📊 Estadísticas del ' + fechaArchivo
+    }).then(function(){
+      mostrarToast('Excel compartido ✓');
+    }).catch(function(e){
+      if(e.name !== 'AbortError') descargarArchivo(blob, nombreArchivo);
+    });
+  } else {
+    descargarArchivo(blob, nombreArchivo);
+  }
+}
+
+// ===== Fallback: SheetJS (sin imágenes pero con datos) =====
+function exportarConSheetJS(arr){
+  var wb = XLSX.utils.book_new();
+  var entregados = arr.filter(function(c){ return clasificarEstado(c.st) === 'entregado'; });
+  var montoTotal = entregados.reduce(function(s,c){ return s + montoDe(c.cobrar); }, 0);
+  var tasaExito = arr.length > 0 ? Math.round(entregados.length / arr.length * 100) : 0;
+
+  var resumenData = [
+    ['📊 ESTADÍSTICAS TRACKVERSE'],
+    ['Período:', periodoActual],
+    ['Generado:', new Date().toLocaleString('es-PE')],
+    [''],
+    ['MÉTRICA', 'VALOR'],
+    ['Total pedidos', arr.length],
+    ['Entregados', entregados.length],
+    ['Tasa de éxito', tasaExito + '%'],
+    ['Monto total', 'S/ ' + montoTotal.toFixed(2)]
+  ];
+  var ws1 = XLSX.utils.aoa_to_sheet(resumenData);
+  XLSX.utils.book_append_sheet(wb, ws1, 'Resumen');
+
+  var entregasData = [['Fecha', 'Hora', 'Cliente', 'Producto', 'Distrito', 'Método', 'Monto']];
+  arr.slice().sort(function(a,b){ return (b._fecha||0) - (a._fecha||0); }).forEach(function(c){
+    var fecha = c._fecha ? new Date(c._fecha) : null;
+    entregasData.push([
+      fecha ? fecha.toLocaleDateString('es-PE') : '-',
+      fecha ? fecha.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'}) : '-',
+      c.nombre || 'Cliente', c.prod || '-', c.dist || '-',
+      etiquetaPago(c.st), montoDe(c.cobrar).toFixed(2)
+    ]);
+  });
+  var ws2 = XLSX.utils.aoa_to_sheet(entregasData);
+  XLSX.utils.book_append_sheet(wb, ws2, 'Detalle');
+
+  var blob = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  var fechaArchivo = new Date().toISOString().slice(0,10);
+  var nombreArchivo = 'Estadisticas-TrackVerse-' + fechaArchivo + '.xlsx';
+  descargarArchivo(new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), nombreArchivo);
+}
+
+// ===== Fallback último: CSV simple (siempre funciona) =====
+function exportarCSV(arr){
+  var rows = [['Fecha', 'Hora', 'Cliente', 'Producto', 'Distrito', 'Método', 'Monto', 'Estado']];
+  arr.slice().sort(function(a,b){ return (b._fecha||0) - (a._fecha||0); }).forEach(function(c){
+    var fecha = c._fecha ? new Date(c._fecha) : null;
+    rows.push([
+      fecha ? fecha.toLocaleDateString('es-PE') : '-',
+      fecha ? fecha.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'}) : '-',
+      c.nombre || '', c.prod || '', c.dist || '',
+      etiquetaPago(c.st), montoDe(c.cobrar).toFixed(2),
+      clasificarEstado(c.st)
+    ]);
+  });
+  var csv = rows.map(function(r){ return r.map(function(c){ return '"' + String(c).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
+  var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  var fechaArchivo = new Date().toISOString().slice(0,10);
+  descargarArchivo(blob, 'Estadisticas-TrackVerse-' + fechaArchivo + '.csv');
+}
+
+function descargarArchivo(blob, filename){
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
   a.href = url;
@@ -992,8 +1195,8 @@ function descargarExcel(blob, filename){
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-  mostrarToast('Excel descargado ✓');
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+  mostrarToast('Archivo descargado ✓');
 }
 
 // ===== Iniciar =====
