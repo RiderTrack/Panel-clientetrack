@@ -35,9 +35,6 @@ jobs:
       - name: Install Dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Install Capacitor plugins (Filesystem + Share)
-        run: npm install @capacitor/share --legacy-peer-deps
-
       - name: Prepare Web Assets
         run: |
           mkdir -p www
@@ -48,7 +45,6 @@ jobs:
           cp plantillas.html www/
           cp configuracion.html www/
           cp catalogo.html www/
-          cp estadisticas.html www/
 
       - name: Add Android Platform
         run: npx cap add android
