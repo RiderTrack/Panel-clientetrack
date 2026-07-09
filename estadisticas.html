@@ -894,60 +894,13 @@ async function exportarExcel(){
   }
 }
 
-// ===== Funciones copiadas de RiderTrack, adaptadas para funcionar DENTRO de un iframe =====
-// CLAVE: este módulo vive en un iframe dentro del panel. window.Capacitor solo
-// existe en la ventana PRINCIPAL (window.top), no en la del iframe. Por eso hay
-// que buscarlo también ahí antes de decir "no estamos en la app".
-function getCap(){
-  try{ if(typeof window.Capacitor !== 'undefined') return window.Capacitor; }catch(e){}
-  try{ if(window.top && typeof window.top.Capacitor !== 'undefined') return window.top.Capacitor; }catch(e){}
-  return null;
-}
-function esCapacitor(){
-  var Cap = getCap();
-  return !!(Cap && Cap.isNativePlatform && Cap.isNativePlatform());
-}
-function esWebView(){
-  var ua = navigator.userAgent || '';
-  return ua.toLowerCase().includes('gonative')
-    || ua.toLowerCase().includes('median')
-    || (ua.includes('Android') && ua.includes('wv'))
-    || typeof window.gonative !== 'undefined'
-    || typeof window.median !== 'undefined'
-    || esCapacitor();
-}
-
-// Descarga directa — copiada tal cual de RiderTrack (funciona en APK)
-function descargaDirecta(blob, nombre){
-  // ── Capacitor nativo ──
-  if(esCapacitor()){
-    var Cap = getCap();
-    var reader = new FileReader();
-    reader.onload = function(e){
-      var b64data = e.target.result.split(',')[1];
-      var FS = Cap && Cap.Plugins && Cap.Plugins.Filesystem;
-      if(!FS){ mostrarToast('❌ Plugin Filesystem no disponible'); return; }
-      FS.writeFile({path: nombre, data: b64data, directory: 'DOWNLOADS', recursive: true})
-        .then(function(){ mostrarToast('✅ Guardado en Descargas: ' + nombre); })
-        .catch(function(){
-          FS.writeFile({path: nombre, data: b64data, directory: 'DOCUMENTS', recursive: true})
-            .then(function(){ mostrarToast('✅ Guardado en Documentos: ' + nombre); })
-            .catch(function(){
-              FS.writeFile({path: nombre, data: b64data, directory: 'CACHE', recursive: true})
-                .then(function(){
-                  FS.getUri({path: nombre, directory: 'CACHE'}).then(function(u){
-                    var SH = Cap.Plugins.Share;
-                    if(SH){ SH.share({title: nombre, url: u.uri, dialogTitle: 'Guardar ' + nombre}); }
-                    else { mostrarToast('✅ ' + nombre + ' guardado'); }
-                  });
-                })
-                .catch(function(){ mostrarToast('❌ Error al guardar archivo'); });
-            });
-        });
-    };
-    reader.readAsDataURL(blob);
-    return;
-  }
+// ===== SIN plugins nativos: solo la Web Share API estandar =====
+// Los plugins Filesystem/Share causaron mas problemas de los que resolvian
+// (rompieron TODA la app, incluido Catalogo y Dashboard que ya funcionaban).
+// Volvemos al metodo simple: navigator.share, que ahora SI funciona porque
+// el iframe del panel ya tiene allow="...;web-share".
+function esCapacitor(){ return false; }
+function esWebView(){ return false; }
 
   var reader2 = new FileReader();
   reader2.onload = function(e){
