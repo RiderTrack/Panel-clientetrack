@@ -902,6 +902,23 @@ async function exportarExcel(){
 function esCapacitor(){ return false; }
 function esWebView(){ return false; }
 
+// Descarga clasica (fallback cuando navigator.share no esta disponible o falla)
+function descargaDirecta(blob, nombre){
+  var reader2 = new FileReader();
+  reader2.onload = function(e){
+    var b64 = e.target.result;
+    if(window.navigator && window.navigator.msSaveBlob){ window.navigator.msSaveBlob(blob, nombre); return; }
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.style.display = 'none'; a.href = url;
+    a.setAttribute('download', nombre);
+    document.body.appendChild(a);
+    var evt = new MouseEvent('click', {bubbles: true, cancelable: true, view: window});
+    a.dispatchEvent(evt);
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 2000);
+  };
+  reader2.readAsDataURL(blob);
+}
 
 function mostrarPantallaDescarga(b64dataUri, nombre){
   var ov = document.createElement('div');
