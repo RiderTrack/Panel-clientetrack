@@ -3,22 +3,6 @@
   "appName": "TrackVerse",
   "webDir": "www",
   "server": {
-    "androidScheme": "https",
-    "cleartext": true
-  },
-  "android": {
-    "allowMixedContent": true,
-    "captureInput": true,
-    "webContentsDebuggingEnabled": false
-  },
-  "plugins": {
-    "App": {},
-    "SplashScreen": {
-      "launchShowDuration": 2000,
-      "launchAutoHide": true,
-      "backgroundColor": "#0d0d1a",
-      "androidSplashResourceName": "splash",
-      "showSpinner": false
-    }
+    "androidScheme": "https"
   }
 }
