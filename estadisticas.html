@@ -902,22 +902,19 @@ async function exportarExcel(){
 function esCapacitor(){ return false; }
 function esWebView(){ return false; }
 
-// Descarga clasica (fallback cuando navigator.share no esta disponible o falla)
+// Descarga clasica — patron IDENTICO a descargarPDF() de Catalogo,
+// el UNICO metodo confirmado funcionando dentro de la APK (incluso en iframe).
+// Sin FileReader intermedio, sin dispatchEvent: URL de blob + a.click() directo.
 function descargaDirecta(blob, nombre){
-  var reader2 = new FileReader();
-  reader2.onload = function(e){
-    var b64 = e.target.result;
-    if(window.navigator && window.navigator.msSaveBlob){ window.navigator.msSaveBlob(blob, nombre); return; }
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.style.display = 'none'; a.href = url;
-    a.setAttribute('download', nombre);
-    document.body.appendChild(a);
-    var evt = new MouseEvent('click', {bubbles: true, cancelable: true, view: window});
-    a.dispatchEvent(evt);
-    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 2000);
-  };
-  reader2.readAsDataURL(blob);
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  mostrarToast('Archivo descargado ✓ Revisa Descargas');
 }
 
 function mostrarPantallaDescarga(b64dataUri, nombre){
@@ -954,15 +951,13 @@ function compartirArchivo(blob, nombre, titulo){
   }
 }
 
-// Wrapper: usa las funciones de RiderTrack que ya funcionan
+// Wrapper: SIEMPRE descarga clasica (<a download>), NUNCA navigator.share.
+// Motivo (descubrimiento clave #2 de la saga): navigator.share en el WebView
+// de la APK "aparenta" funcionar pero no guarda nada — fallo silencioso.
+// El metodo clasico SI funciona dentro del iframe (confirmado con Catalogo
+// antes de agregar el permiso web-share).
 async function compartirOdescargar(blob, filename, mimeType){
-  // En APK o WebView: usar descargaDirecta (que tiene todos los fallbacks)
-  if(esCapacitor() || esWebView()){
-    descargaDirecta(blob, filename);
-    return;
-  }
-  // En navegador: intentar share, si no descarga directa
-  compartirArchivo(blob, filename, 'Estadísticas TrackVerse');
+  descargaDirecta(blob, filename);
 }
 // ===== Exportar con ExcelJS (incluye imágenes de gráficos) =====
 async function exportarConExcelJS(arr, conGraficos){

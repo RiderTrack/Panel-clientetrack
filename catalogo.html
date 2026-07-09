@@ -1402,26 +1402,11 @@ function imprimirCatalogo(){
     var blob = pdf.output('blob');
     var nombreTiendaLimpio = (configTienda.nombre || 'TrackVerse').replace(/[^a-zA-Z0-9]/g, '-');
     var filename = 'Catalogo-' + nombreTiendaLimpio + '-' + new Date().toISOString().slice(0,10) + '.pdf';
-    var file = new File([blob], filename, { type: 'application/pdf' });
 
-    // Intentar Web Share API primero (en APK funciona)
-    if(navigator.canShare && navigator.canShare({ files: [file] })){
-      navigator.share({
-        files: [file],
-        title: 'Catálogo ' + (configTienda.nombre || 'TrackVerse'),
-        text: '🛍️ Catálogo ' + (configTienda.nombre || 'TrackVerse') + ' · ' + fecha
-      }).then(function(){
-        mostrarToast('Catálogo compartido ✓');
-      }).catch(function(e){
-        if(e.name !== 'AbortError'){
-          // Si falla share, descargar directo
-          descargarPDF(blob, filename);
-        }
-      });
-    } else {
-      // Fallback: descargar directo
-      descargarPDF(blob, filename);
-    }
+    // SIEMPRE descarga clasica — navigator.share en la APK falla en silencio
+    // (aparenta exito pero no guarda nada). Este es el metodo que SI
+    // funcionaba antes de agregar el permiso web-share al iframe.
+    descargarPDF(blob, filename);
   }).catch(function(e){
     document.body.removeChild(div);
     mostrarToast('Error generando PDF: ' + e.message);
