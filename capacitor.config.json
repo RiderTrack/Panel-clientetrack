@@ -12,10 +12,6 @@
     "webContentsDebuggingEnabled": false
   },
   "plugins": {
-    "Filesystem": {
-      "permissions": ["publicStorage"]
-    },
-    "Share": {},
     "App": {},
     "SplashScreen": {
       "launchShowDuration": 2000,
