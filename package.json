@@ -1,21 +1,13 @@
 {
-  "name": "trackverse-app",
+  "name": "clientetrack",
   "version": "1.0.0",
-  "description": "TrackVerse - Panel de control para WhatsApp bot y delivery",
-  "main": "index.js",
+  "description": "TrackVerse Panel",
   "scripts": {
-    "build": "echo 'No build needed for HTML app'",
-    "cap:sync": "npx cap sync android",
-    "cap:open": "npx cap open android"
+    "build": "echo 'No build step needed for static HTML'"
   },
   "dependencies": {
     "@capacitor/android": "^6.0.0",
-    "@capacitor/app": "^6.0.0",
     "@capacitor/core": "^6.0.0",
-    "@capacitor/splash-screen": "^6.0.0",
-    "@capacitor/status-bar": "^6.0.0"
-  },
-  "devDependencies": {
     "@capacitor/cli": "^6.0.0"
   }
 }
