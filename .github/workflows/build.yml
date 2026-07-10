@@ -48,6 +48,21 @@ jobs:
           [ -f estadisticas.html ] && cp estadisticas.html www/ || echo "⚠️ estadisticas.html no encontrado (ok)"
           echo "✅ Web assets copiados (los que existan)"
 
+      # ════════════════════════════════════════════════════════════════════
+      # PASO CLAVE #1: Copiar bridges JS de Capacitor al www/
+      # Sin estos <script> tags, window.Capacitor siempre será undefined
+      # dentro de la APK, y ningún plugin nativo podrá ser invocado.
+      # ════════════════════════════════════════════════════════════════════
+      - name: Copy Capacitor JS bridges to www/
+        run: |
+          # Bridge principal de Capacitor (expone window.Capacitor + registerPlugin)
+          cp node_modules/@capacitor/core/dist/capacitor.js www/ 2>/dev/null || echo "⚠️ capacitor.js no encontrado"
+          # Plugin Filesystem (escritura de archivos nativa)
+          cp node_modules/@capacitor/filesystem/dist/plugin.js www/filesystem.js 2>/dev/null || echo "⚠️ filesystem.js no encontrado"
+          # Plugin Share (abre sheet nativo de compartir)
+          cp node_modules/@capacitor/share/dist/plugin.js www/share.js 2>/dev/null || echo "⚠️ share.js no encontrado"
+          ls -la www/*.js
+
       - name: Add Android Platform
         run: npx cap add android
 
@@ -55,6 +70,31 @@ jobs:
         run: |
           sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />|' android/app/src/main/AndroidManifest.xml
           grep "uses-permission" android/app/src/main/AndroidManifest.xml
+
+      # ════════════════════════════════════════════════════════════════════
+      # PASO CLAVE #2: Resolver conflicto de BouncyCastle con Java 21
+      # El error "Failed to create Jar file... bcprov-jdk18on-1.79.jar" ocurre
+      # porque @capacitor/filesystem trae androidx.security:crypto que depende
+      # de bcprov-jdk18on (requiere Java 18+), pero el toolchain de Gradle
+      # con AGP 8 choca con esa versión. Forzamos bcprov-jdk15to18:1.70 que
+      # SÍ compila con Java 21.
+      # ════════════════════════════════════════════════════════════════════
+      - name: Patch BouncyCastle conflict for Java 21
+        run: |
+          ROOT_GRADLE=android/build.gradle
+          APP_GRADLE=android/app/build.gradle
+
+          # Forzar versión compatible de BouncyCastle en el root build.gradle
+          if ! grep -q "bcprov-jdk15to18" "$ROOT_GRADLE"; then
+            awk '/buildscript \{/{print; print "    configurations.all { resolutionStrategy { force \"org.bouncycastle:bcprov-jdk15to18:1.70\" } }"; next}1' "$ROOT_GRADLE" > tmp && mv tmp "$ROOT_GRADLE"
+          fi
+          if ! grep -q "bcprov-jdk15to18" "$APP_GRADLE"; then
+            awk '/dependencies \{/{print; print "    configurations.all { resolutionStrategy { force \"org.bouncycastle:bcprov-jdk15to18:1.70\" } }"; next}1' "$APP_GRADLE" > tmp && mv tmp "$APP_GRADLE"
+          fi
+          echo "=== android/build.gradle (primeras 30 líneas) ==="
+          head -30 "$ROOT_GRADLE"
+          echo "=== android/app/build.gradle (primeras 30 líneas) ==="
+          head -30 "$APP_GRADLE"
 
       - name: Set App Name to TrackVerse
         run: |
