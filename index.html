@@ -709,6 +709,17 @@
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         Capacitor bridges — sin esto window.Capacitor SIEMPRE es undefined
+         dentro de la APK y ningún plugin nativo puede invocarse.
+         Los archivos los copia build.yml desde node_modules/@capacitor/*/dist/
+         al www/ durante el build. En Chrome (no-APK) simplemente no existen
+         y el código hace fallback al método clásico <a download>.
+    ════════════════════════════════════════════════════════════════════ -->
+    <script src="capacitor.js"></script>
+    <script src="filesystem.js"></script>
+    <script src="share.js"></script>
 </head>
 <body>
 
@@ -1388,10 +1399,111 @@
             ws['!merges'] = [{ s:{r:0,c:0}, e:{r:0,c:5} }];
             var wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Clientes');
-            XLSX.writeFile(wb, 'TrackVerse_Clientes_' + new Date().toISOString().slice(0,10) + '.xlsx');
-            toastDash('Paso 4/4: descargado ✓ Revisa Descargas');
+            // Generar blob en vez de writeFile directo — así podemos usar el
+            // puente nativo de Capacitor (Filesystem + Share) dentro de la APK,
+            // y hacer fallback a a.click() en Chrome normal.
+            var arrBuffer = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+            var blob = new Blob([arrBuffer], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            var nombre = 'TrackVerse_Clientes_' + new Date().toISOString().slice(0,10) + '.xlsx';
+            toastDash('Paso 4/4: guardando... ⏳');
+            await guardarArchivoTrackVerse(blob, nombre);
+            toastDash('✓ Listo — revisa la hoja de compartir');
           }catch(e){ toastDash('⚠️ Error: ' + e.message); }
         }
+
+        // ════════════════════════════════════════════════════════════════════
+        // PUENTE NATIVO DE DESCARGA — TrackVerse
+        // ════════════════════════════════════════════════════════════════════
+        // En la APK (WebView Android), ni <a download> ni navigator.share()
+        // guardan archivos de verdad. Por eso usamos Capacitor Filesystem +
+        // Share como puente: escribimos el blob en cache de la app y abrimos
+        // el sheet nativo de Android, desde donde Rudy puede elegir
+        // "Guardar en Descargas" / "Compartir por WhatsApp" / etc.
+        //
+        // Esta función vive en index.html (top-level) — los iframes la invocan
+        // vía postMessage (ver listener más abajo).
+        // En Chrome (no-APK), Capacitor no existe → fallback a a.click().
+        // ════════════════════════════════════════════════════════════════════
+        function _capacitorListo(){
+          return typeof window.Capacitor !== 'undefined' &&
+                 window.Capacitor !== null &&
+                 window.Capacitor.isNativePlatform &&
+                 window.Capacitor.isNativePlatform();
+        }
+
+        function _blobToBase64(blob){
+          return new Promise(function(resolve, reject){
+            var r = new FileReader();
+            r.onload  = function(){ resolve(r.result.split(',')[1]); };
+            r.onerror = function(e){ reject(e); };
+            r.readAsDataURL(blob);
+          });
+        }
+
+        async function guardarArchivoTrackVerse(blob, nombre){
+          // 1) Si NO estamos en la APK (Chrome normal) → método clásico
+          if(!_capacitorListo()){
+            return new Promise(function(resolve){
+              var url = URL.createObjectURL(blob);
+              var a = document.createElement('a');
+              a.href = url;
+              a.download = nombre;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
+              resolve();
+            });
+          }
+          // 2) APK: usar Capacitor Filesystem + Share
+          try{
+            var Filesystem = window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem;
+            var Share      = window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
+            if(!Filesystem || !Share){
+              throw new Error('Plugins Filesystem/Share no disponibles');
+            }
+            var b64 = await _blobToBase64(blob);
+            // Escribir en cache de la app (no requiere permisos)
+            var res = await Filesystem.writeFile({
+              path: nombre,
+              data: b64,
+              directory: 'CACHE',   // Cache de la app — siempre escribible
+              recursive: false
+            });
+            // Abrir sheet nativo de Android: "Compartir / Guardar en Descargas / WhatsApp..."
+            await Share.share({
+              files: [res.uri],
+              title: 'TrackVerse — ' + nombre,
+              text: 'Archivo exportado desde TrackVerse'
+            });
+            toastDash('✓ Compartido — elige dónde guardarlo');
+          }catch(e){
+            console.error('guardarArchivoTrackVerse error:', e);
+            toastDash('⚠️ No se pudo guardar: ' + (e && e.message ? e.message : 'error desconocido'));
+            throw e;
+          }
+        }
+
+        // Listener: los iframes (Catálogo, Estadísticas, etc.) mandan el blob
+        // acá vía postMessage porque ellos NO tienen acceso al bridge nativo.
+        window.addEventListener('message', async function(ev){
+          // Validar origen (mismo origen en APK, file:// o https://localhost)
+          if(!ev.data || ev.data.type !== 'trackverse-descarga') return;
+          try{
+            var datos = ev.data; // { type, nombre, mimeType, base64 }
+            // Reconstruir blob desde base64
+            var byteChars = atob(datos.base64);
+            var byteNumbers = new Array(byteChars.length);
+            for(var i=0; i<byteChars.length; i++){ byteNumbers[i] = byteChars.charCodeAt(i); }
+            var byteArray = new Uint8Array(byteNumbers);
+            var blob = new Blob([byteArray], { type: datos.mimeType || 'application/octet-stream' });
+            toastDash('Guardando ' + datos.nombre + '...');
+            await guardarArchivoTrackVerse(blob, datos.nombre);
+          }catch(e){
+            console.error('postMessage descarga error:', e);
+            toastDash('⚠️ Error recibiendo archivo: ' + (e && e.message ? e.message : ''));
+          }
+        });
 
         setTimeout(actualizarDashboard, 500);
     </script>
