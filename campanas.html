@@ -449,10 +449,42 @@
       </div>
     </div>
 
+    <!-- Aviso de fallidos (solo si hay) -->
+    <div id="aviso-fallidos" style="display:none; background:#FEE2E2; border:1px solid #FCA5A5; border-radius:12px; padding:12px; margin-bottom:14px;">
+      <div style="font-size:0.78rem; color:#991B1B; font-weight:600; margin-bottom:8px;">
+        ⚠️ <span id="txt-fallidos">0</span> no se enviaron
+      </div>
+      <div style="font-size:0.7rem; color:#7F1D1D; margin-bottom:10px; line-height:1.4;">
+        Algunos pueden haber llegado igual. Reintenta solo si estás seguro de que no llegaron
+        (el cliente podría recibirlo dos veces).
+      </div>
+      <button onclick="reintentarFallidos()" style="width:100%; background:#DC2626; color:#fff; border:none; border-radius:10px; padding:10px; font-family:inherit; font-weight:700; font-size:0.8rem; cursor:pointer;">
+        🔁 Reintentar los fallidos
+      </button>
+    </div>
+
     <div class="hoja-btns">
       <button class="btn sec" onclick="cerrarDetalle()">Cerrar</button>
       <button class="btn peligro" style="background:rgba(239,68,68,0.1); color:var(--red);" onclick="pausarCampana()" id="btn-pausar">Pausar</button>
       <button class="btn wa" onclick="duplicarCampana()">Duplicar</button>
+    </div>
+    <div style="margin-top:10px;">
+      <button onclick="eliminarCampana()" style="width:100%; background:transparent; color:var(--red); border:1px solid #FCA5A5; border-radius:14px; padding:12px; font-family:inherit; font-weight:700; font-size:0.85rem; cursor:pointer;">
+        🗑️ Eliminar campaña
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal: Confirmación custom ===== -->
+<div class="modal-back" id="modal-confirm" style="z-index:300;">
+  <div class="hoja" style="max-width:420px;">
+    <div class="grab"></div>
+    <h2 style="font-size:1.05rem;"><i class="fa-solid fa-triangle-exclamation" style="color:var(--red);"></i> <span id="conf-titulo">¿Confirmar?</span></h2>
+    <div id="conf-texto" style="font-size:0.85rem; color:var(--muted); line-height:1.5; margin-bottom:6px;"></div>
+    <div class="hoja-btns">
+      <button class="btn sec" onclick="cerrarConfirm()">Cancelar</button>
+      <button class="btn" id="conf-ok" style="background:var(--red); color:#fff;">Confirmar</button>
     </div>
   </div>
 </div>
@@ -1096,6 +1128,15 @@ function actualizarStatsDetalle(stats){
   document.getElementById('det-prog').style.width = pct + '%';
   document.getElementById('det-prog-txt').textContent = stats.enviados + ' / ' + stats.total;
   document.getElementById('det-prog-pct').textContent = pct + '%';
+
+  // Mostrar el bloque de reintento SOLO si hay fallidos
+  var aviso = document.getElementById('aviso-fallidos');
+  if(stats.fallidos > 0){
+    document.getElementById('txt-fallidos').textContent = stats.fallidos;
+    aviso.style.display = 'block';
+  } else {
+    aviso.style.display = 'none';
+  }
 }
 
 function cerrarDetalle(){
@@ -1153,6 +1194,130 @@ async function duplicarCampana(){
   }catch(e){
     mostrarToast('⚠️ Error duplicando: ' + e.message);
   }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Modal de confirmación custom (nunca confirm() nativo — falla en WebView)
+// ════════════════════════════════════════════════════════════════════
+function confirmar(titulo, texto, textoBoton, onOk){
+  var back = document.getElementById('modal-confirm');
+  document.getElementById('conf-titulo').textContent = titulo;
+  document.getElementById('conf-texto').textContent = texto;
+  var btn = document.getElementById('conf-ok');
+  btn.textContent = textoBoton;
+  btn.onclick = function(){
+    back.classList.remove('show');
+    onOk();
+  };
+  back.classList.add('show');
+}
+function cerrarConfirm(){
+  document.getElementById('modal-confirm').classList.remove('show');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Eliminar campaña (manual — tú decides qué borrar)
+// ════════════════════════════════════════════════════════════════════
+async function eliminarCampana(){
+  var id = document.getElementById('modal-detalle').dataset.id;
+  if(!id) return;
+  var c = CAMPAÑAS.find(function(x){ return x.id === id; });
+  var nom = c ? (c.nombre || 'esta campaña') : 'esta campaña';
+
+  confirmar(
+    '¿Eliminar campaña?',
+    'Se borrará "' + nom + '" y todo su historial de envíos. Esto no se puede deshacer. Los mensajes ya enviados NO se borran del WhatsApp del cliente.',
+    'Sí, eliminar',
+    async function(){
+      try{
+        mostrarToast('Eliminando... ⏳');
+
+        // 1. Borrar subcolección destinatarios (Firestore no la borra sola)
+        var dests = await db.collection('campanas').doc(id).collection('destinatarios').get();
+        for(var i = 0; i < dests.docs.length; i++){
+          try { await dests.docs[i].ref.delete(); } catch(e){}
+        }
+
+        // 2. Borrar lo que quede en cola_envio de esta campaña
+        var cola = await db.collection('cola_envio').where('campaign_id','==',id).get();
+        for(var j = 0; j < cola.docs.length; j++){
+          try { await cola.docs[j].ref.delete(); } catch(e){}
+        }
+
+        // 3. Borrar la campaña
+        await db.collection('campanas').doc(id).delete();
+
+        mostrarToast('🗑️ Campaña eliminada');
+        cerrarDetalle();
+      }catch(e){
+        console.error('eliminarCampana:', e);
+        mostrarToast('⚠️ Error eliminando: ' + e.message);
+      }
+    }
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Reintentar fallidos — re-encola SOLO los que no salieron
+// ⚠️ Riesgo: si el mensaje sí llegó pero se marcó fallido, el cliente
+//    lo recibirá dos veces. Por eso es MANUAL y con advertencia.
+// ════════════════════════════════════════════════════════════════════
+async function reintentarFallidos(){
+  var id = document.getElementById('modal-detalle').dataset.id;
+  if(!id) return;
+  var c = CAMPAÑAS.find(function(x){ return x.id === id; });
+  if(!c) return;
+
+  confirmar(
+    '¿Reintentar los fallidos?',
+    'Se volverán a enviar solo los que fallaron. Si alguno SÍ había llegado, ese cliente recibirá el mensaje dos veces.',
+    'Sí, reintentar',
+    async function(){
+      try{
+        mostrarToast('Re-encolando fallidos... ⏳');
+        var snap = await db.collection('campanas').doc(id)
+          .collection('destinatarios').where('estado','==','fallido').get();
+
+        if(snap.empty){
+          mostrarToast('No hay fallidos que reintentar');
+          return;
+        }
+
+        var n = 0;
+        for(var i = 0; i < snap.docs.length; i++){
+          var d = snap.docs[i].data();
+          var cel = String(d.celular || snap.docs[i].id).replace(/\D/g,'');
+          try{
+            // Volver a poner en la cola (el bot lo agarra solo)
+            await db.collection('cola_envio').doc(cel + '_' + id + '_r' + Date.now()).set({
+              campaign_id: id,
+              celular: cel,
+              nombre: d.nombre || 'Cliente',
+              mensaje: d.mensaje_personalizado || c.mensaje || '',
+              multimedia: c.multimedia || null,
+              velocidad: c.velocidad || 8,
+              status: 'pendiente',
+              creada_en: new Date().toISOString(),
+              intentos: 0
+            });
+            // Marcar el destinatario como pendiente otra vez
+            await snap.docs[i].ref.update({ estado: 'pendiente', error: null });
+            n++;
+          }catch(e){
+            console.error('No se pudo re-encolar', cel, e.message);
+          }
+        }
+
+        // Devolver la campaña a "enviando"
+        try { await db.collection('campanas').doc(id).update({ estado: 'enviando' }); } catch(e){}
+
+        mostrarToast('🔁 ' + n + ' re-encolados');
+        cerrarDetalle();
+      }catch(e){
+        mostrarToast('⚠️ Error reintentando: ' + e.message);
+      }
+    }
+  );
 }
 
 // Cerrar modal al tocar backdrop
