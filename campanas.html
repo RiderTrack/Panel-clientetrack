@@ -528,14 +528,16 @@ function iniciarListenerCampanas(){
 async function cargarClientes(){
   if(CACHE_CLIENTES) return CACHE_CLIENTES;
   var clientes = [];
-  var pasoActual = 'ruta_activa';
+  var errores = [];
+
+  // 1. Ruta activa (clientes del día) — si falla, seguimos con el siguiente
+  mostrarToast('Leyendo clientes (1/2)... ⏳');
   try{
-    // 1. Ruta activa (clientes del día) — con source: 'server' para forzar conexión
-    mostrarToast('Leyendo clientes (1/2)... ⏳');
     var snap1 = await db.collection('ruta_activa').doc(UID_BOT).get();
     if(snap1.exists){
       var data = snap1.data();
-      (data.clientes || []).forEach(function(c){
+      var arr = data.clientes || [];
+      arr.forEach(function(c){
         clientes.push({
           cel: normalizarTel(c.cel),
           nombre: c.nombre || 'Cliente',
@@ -545,10 +547,18 @@ async function cargarClientes(){
           dist: (c.dist || '').trim()
         });
       });
+      console.log('ruta_activa: ' + arr.length + ' clientes leídos');
+    } else {
+      console.log('ruta_activa: doc no existe');
     }
-    // 2. Clientes registrados (BD histórica)
-    pasoActual = 'clientes_registrados';
-    mostrarToast('Leyendo clientes (2/2)... ⏳');
+  }catch(e){
+    console.error('ruta_activa error:', e.message);
+    errores.push('ruta_activa: ' + e.message);
+  }
+
+  // 2. Clientes registrados (BD histórica) — si falla, seguimos igual
+  mostrarToast('Leyendo clientes (2/2)... ⏳');
+  try{
     var snap2 = await db.collection('clientes_registrados').get();
     snap2.forEach(function(d){
       var c = d.data();
@@ -564,17 +574,24 @@ async function cargarClientes(){
         });
       }
     });
-    CACHE_CLIENTES = clientes;
-    mostrarToast('✓ ' + clientes.length + ' clientes cargados');
-    return clientes;
+    console.log('clientes_registrados: ' + snap2.size + ' docs leídos');
   }catch(e){
-    console.error('cargarClientes error en', pasoActual, ':', e);
-    // Si es "offline", dar un mensaje más útil
-    if(e.message && e.message.indexOf('offline') >= 0){
-      throw new Error('Sin conexión a Firebase al leer ' + pasoActual + '. Revisa tu internet e inténtalo de nuevo.');
-    }
-    throw new Error('Error leyendo ' + pasoActual + ': ' + e.message);
+    console.error('clientes_registrados error:', e.message);
+    errores.push('clientes_registrados: ' + e.message);
   }
+
+  // Si no cargamos nada Y hubo errores, lanzar
+  if(clientes.length === 0 && errores.length > 0){
+    throw new Error('No se pudieron cargar clientes: ' + errores.join(' | '));
+  }
+
+  CACHE_CLIENTES = clientes;
+  if(errores.length > 0){
+    mostrarToast('⚠️ ' + clientes.length + ' clientes cargados (con errores en ' + errores.length + ' fuente)');
+  } else {
+    mostrarToast('✓ ' + clientes.length + ' clientes cargados');
+  }
+  return clientes;
 }
 
 function normalizarTel(t){
