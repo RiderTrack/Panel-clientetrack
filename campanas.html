@@ -363,14 +363,39 @@
     <div class="campo">
       <label>Destinatarios</label>
 
-      <div class="filtro-card selected" data-filtro-tipo="todos" onclick="selFiltro('todos')">
+      <div class="filtro-card selected" data-filtro-tipo="ruta" onclick="selFiltro('ruta')">
         <div class="filtro-card-head">
-          <i class="fa-solid fa-users"></i>
-          <b>Todos los clientes</b>
+          <i class="fa-solid fa-route"></i>
+          <b>Solo la ruta de hoy</b>
           <div class="radio"></div>
         </div>
         <div class="filtro-card-body">
-          <div style="font-size:0.78rem; color:var(--muted);">Se enviará a todos los clientes registrados en tu ruta activa.</div>
+          <div style="font-size:0.78rem; color:var(--muted);">
+            Únicamente los clientes de tu <b>ruta activa de hoy</b>. <span id="cnt-ruta"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="filtro-card" data-filtro-tipo="elegir" onclick="selFiltro('elegir')">
+        <div class="filtro-card-head">
+          <i class="fa-solid fa-hand-pointer"></i>
+          <b>Elegir clientes uno por uno</b>
+          <div class="radio"></div>
+        </div>
+        <div class="filtro-card-body">
+          <div style="font-size:0.78rem; color:var(--muted); margin-bottom:8px;">
+            Marca exactamente a quién le llega. <b id="cnt-elegidos">0 seleccionados</b>
+          </div>
+          <input type="text" id="buscar-cliente" placeholder="Buscar por nombre o celular..."
+                 oninput="renderSelectorClientes()"
+                 style="width:100%; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:9px 12px; font-size:0.82rem; font-family:inherit; outline:none; margin-bottom:8px;">
+          <div style="display:flex; gap:6px; margin-bottom:8px;">
+            <button onclick="event.stopPropagation(); marcarTodosVisibles(true)" style="flex:1; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:6px; font-size:0.7rem; font-family:inherit; font-weight:600; color:var(--blue); cursor:pointer;">Marcar visibles</button>
+            <button onclick="event.stopPropagation(); marcarTodosVisibles(false)" style="flex:1; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:6px; font-size:0.7rem; font-family:inherit; font-weight:600; color:var(--muted); cursor:pointer;">Desmarcar todo</button>
+          </div>
+          <div id="selector-clientes" style="max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:10px; background:var(--card);">
+            <div style="padding:16px; text-align:center; color:var(--muted); font-size:0.78rem;">Cargando clientes...</div>
+          </div>
         </div>
       </div>
 
@@ -383,11 +408,7 @@
         <div class="filtro-card-body">
           <div style="font-size:0.78rem; color:var(--muted); margin-bottom:8px;">Selecciona uno o más distritos:</div>
           <div id="distritos-list" style="display:flex; flex-wrap:wrap; gap:6px;">
-            <!-- Se carga dinámicamente en F2 -->
-            <span class="var-chip">Comas</span>
-            <span class="var-chip">Los Olivos</span>
-            <span class="var-chip">San Martín</span>
-            <span class="var-chip">Independencia</span>
+            <span class="var-chip">Cargando...</span>
           </div>
         </div>
       </div>
@@ -401,6 +422,20 @@
         <div class="filtro-card-body">
           <textarea id="c-manual" placeholder="51987654321&#10;51912345678&#10;51987654322" style="font-family:'Courier New',monospace; font-size:0.82rem; min-height:80px;"></textarea>
           <div class="vars-hint">Un número por línea, con código de país (51) o sin él.</div>
+        </div>
+      </div>
+
+      <div class="filtro-card" data-filtro-tipo="todos" onclick="selFiltro('todos')" style="border-color:#FCA5A5;">
+        <div class="filtro-card-head">
+          <i class="fa-solid fa-triangle-exclamation" style="color:var(--red);"></i>
+          <b style="color:#991B1B;">TODOS (ruta + histórico)</b>
+          <div class="radio"></div>
+        </div>
+        <div class="filtro-card-body">
+          <div style="font-size:0.78rem; color:#991B1B; line-height:1.5;">
+            ⚠️ Incluye <b>toda tu base histórica</b>, no solo los de hoy.
+            Le llegará a clientes de días anteriores. <span id="cnt-todos"></span>
+          </div>
         </div>
       </div>
     </div>
@@ -479,6 +514,50 @@
   </div>
 </div>
 
+<!-- ===== Modal: CONFIRMAR ENVÍO (red de seguridad) ===== -->
+<div class="modal-back" id="modal-envio" style="z-index:280;">
+  <div class="hoja">
+    <div class="grab"></div>
+    <h2><i class="fa-solid fa-paper-plane"></i> Confirmar envío</h2>
+
+    <div style="background:#FEF3C7; border:1px solid #FCD34D; border-radius:14px; padding:14px; margin-bottom:14px; text-align:center;">
+      <div style="font-size:2rem; font-weight:800; color:#92400E; line-height:1;" id="env-total">0</div>
+      <div style="font-size:0.72rem; color:#92400E; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-top:4px;">clientes recibirán este mensaje</div>
+      <div style="font-size:0.75rem; margin-top:8px;" id="env-desglose"></div>
+      <div style="font-size:0.7rem; color:#92400E; margin-top:6px;">⏱️ Tomará <b id="env-tiempo">~0 min</b></div>
+    </div>
+
+    <div class="campo">
+      <label>Así se verá el mensaje</label>
+      <div class="preview-card">
+        <div class="preview-text" id="env-preview"></div>
+        <div class="preview-time">12:34 ✓✓</div>
+      </div>
+    </div>
+
+    <div class="campo">
+      <label>¿A quiénes exactamente?</label>
+      <div id="env-lista" style="max-height:200px; overflow-y:auto; border:1px solid var(--border); border-radius:12px; background:var(--bg);"></div>
+    </div>
+
+    <div style="background:rgba(0,82,255,0.05); border:1px solid rgba(0,82,255,0.2); border-radius:14px; padding:12px; margin-bottom:6px;">
+      <div style="font-size:0.75rem; font-weight:700; margin-bottom:8px;">🧪 Primero pruébalo contigo</div>
+      <div style="display:flex; gap:6px;">
+        <input type="text" id="mi-numero" placeholder="Tu celular" style="flex:1; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:8px 10px; font-size:0.8rem; font-family:inherit; outline:none;">
+        <button onclick="guardarMiNumero()" style="background:var(--card); border:1px solid var(--border); border-radius:10px; padding:0 12px; font-size:0.72rem; font-family:inherit; font-weight:600; color:var(--muted); cursor:pointer;">Guardar</button>
+      </div>
+      <button onclick="enviarPruebaAMi()" style="width:100%; margin-top:8px; background:var(--blue); color:#fff; border:none; border-radius:10px; padding:10px; font-family:inherit; font-weight:700; font-size:0.8rem; cursor:pointer;">
+        Enviarme la prueba solo a mí
+      </button>
+    </div>
+
+    <div class="hoja-btns">
+      <button class="btn sec" onclick="cerrarConfirmEnvio()">Cancelar</button>
+      <button class="btn wa" onclick="confirmarYEnviar()">Sí, enviar a todos</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== Modal: Confirmación custom ===== -->
 <div class="modal-back" id="modal-confirm" style="z-index:300;">
   <div class="hoja" style="max-width:420px;">
@@ -519,7 +598,8 @@ var CAMPAÑAS = [];              // cache local de campañas
 var CACHE_CLIENTES = null;      // cache de clientes (evita lecturas repetidas)
 var filtroActual = 'todas';
 var tipoMediaSel = 'texto';
-var filtroSel = 'todos';
+var filtroSel = 'ruta';          // default SEGURO: solo ruta de hoy
+var clientesElegidos = new Set();  // celulares marcados en el selector
 var archivoMediaSel = null;     // File object del input file
 var distritosSeleccionados = new Set();
 var unsubscribeDetalle = null;  // listener de destinatarios en detalle
@@ -580,7 +660,8 @@ async function cargarClientes(){
           prod: c.prod || '',
           cobrar: c.cobrar || '',
           dir: c.dir || '',
-          dist: (c.dist || '').trim()
+          dist: (c.dist || '').trim(),
+          origen: 'ruta'
         });
       });
       console.log('ruta_activa: ' + arr.length + ' clientes leídos');
@@ -606,7 +687,8 @@ async function cargarClientes(){
           prod: c.prod || '',
           cobrar: c.cobrar || '',
           dir: c.dir || '',
-          dist: (c.dist || '').trim()
+          dist: (c.dist || '').trim(),
+          origen: 'historico'
         });
       }
     });
@@ -812,6 +894,85 @@ function selFiltro(tipo){
   document.querySelectorAll('.filtro-card').forEach(function(c){
     c.classList.toggle('selected', c.dataset.filtroTipo === tipo);
   });
+  if(tipo === 'elegir'){
+    renderSelectorClientes();
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Selector de clientes uno por uno
+// ════════════════════════════════════════════════════════════════════
+function renderSelectorClientes(){
+  var cont = document.getElementById('selector-clientes');
+  if(!cont) return;
+
+  if(!CACHE_CLIENTES){
+    cont.innerHTML = '<div style="padding:16px; text-align:center; color:var(--muted); font-size:0.78rem;">Cargando clientes...</div>';
+    cargarClientes().then(function(){ renderSelectorClientes(); }).catch(function(e){
+      cont.innerHTML = '<div style="padding:16px; text-align:center; color:var(--red); font-size:0.78rem;">Error: ' + e.message + '</div>';
+    });
+    return;
+  }
+
+  var q = (document.getElementById('buscar-cliente').value || '').toLowerCase().trim();
+  var lista = CACHE_CLIENTES.filter(function(c){
+    if(!q) return true;
+    return (c.nombre || '').toLowerCase().indexOf(q) !== -1 || (c.cel || '').indexOf(q) !== -1;
+  });
+
+  if(lista.length === 0){
+    cont.innerHTML = '<div style="padding:16px; text-align:center; color:var(--muted); font-size:0.78rem;">Sin resultados</div>';
+    actualizarContadorElegidos();
+    return;
+  }
+
+  var html = '';
+  lista.forEach(function(c){
+    var marcado = clientesElegidos.has(c.cel);
+    var esRuta = c.origen === 'ruta';
+    var badge = esRuta
+      ? '<span style="font-size:0.58rem; font-weight:800; background:#D1FAE5; color:#065F46; padding:2px 6px; border-radius:5px;">HOY</span>'
+      : '<span style="font-size:0.58rem; font-weight:800; background:#F1F5F9; color:#64748B; padding:2px 6px; border-radius:5px;">HIST</span>';
+    html += '<div onclick="event.stopPropagation(); toggleCliente(\'' + c.cel + '\')" ' +
+      'style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--border); cursor:pointer; ' +
+      (marcado ? 'background:rgba(0,82,255,0.06);' : '') + '">' +
+      '<div style="width:20px; height:20px; border-radius:6px; border:2px solid ' + (marcado ? 'var(--blue)' : 'var(--border)') + '; ' +
+      'background:' + (marcado ? 'var(--blue)' : 'transparent') + '; flex-shrink:0; display:flex; align-items:center; justify-content:center;">' +
+      (marcado ? '<i class="fa-solid fa-check" style="color:#fff; font-size:0.65rem;"></i>' : '') +
+      '</div>' +
+      '<div style="flex:1; min-width:0;">' +
+      '<div style="font-size:0.82rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + (c.nombre || 'Cliente') + '</div>' +
+      '<div style="font-size:0.68rem; color:var(--muted);">' + c.cel + (c.dist ? ' · ' + c.dist : '') + '</div>' +
+      '</div>' + badge +
+      '</div>';
+  });
+  cont.innerHTML = html;
+  actualizarContadorElegidos();
+}
+
+function toggleCliente(cel){
+  if(clientesElegidos.has(cel)) clientesElegidos.delete(cel);
+  else clientesElegidos.add(cel);
+  renderSelectorClientes();
+}
+
+function marcarTodosVisibles(marcar){
+  if(!CACHE_CLIENTES) return;
+  var q = (document.getElementById('buscar-cliente').value || '').toLowerCase().trim();
+  if(!marcar){
+    clientesElegidos.clear();
+  } else {
+    CACHE_CLIENTES.forEach(function(c){
+      var match = !q || (c.nombre || '').toLowerCase().indexOf(q) !== -1 || (c.cel || '').indexOf(q) !== -1;
+      if(match) clientesElegidos.add(c.cel);
+    });
+  }
+  renderSelectorClientes();
+}
+
+function actualizarContadorElegidos(){
+  var el = document.getElementById('cnt-elegidos');
+  if(el) el.textContent = clientesElegidos.size + ' seleccionados';
 }
 
 function actualizarVel(val){
@@ -911,10 +1072,23 @@ async function obtenerDestinatarios(){
     return destinatarios;
   }
 
-  // ===== TODOS o POR DISTRITO =====
-  // Estos SÍ necesitan cargar clientes de Firestore
+  // ===== Los demás SÍ necesitan cargar clientes de Firestore =====
   var clientes = await cargarClientes();
-  if(filtroSel === 'todos'){
+
+  if(filtroSel === 'ruta'){
+    // Solo los de la ruta activa de HOY
+    destinatarios = clientes.filter(function(c){ return c.origen === 'ruta'; });
+    if(destinatarios.length === 0){
+      throw new Error('No hay clientes en tu ruta de hoy');
+    }
+  } else if(filtroSel === 'elegir'){
+    // Solo los que marcaste uno por uno
+    if(clientesElegidos.size === 0){
+      throw new Error('No has marcado ningún cliente');
+    }
+    destinatarios = clientes.filter(function(c){ return clientesElegidos.has(c.cel); });
+  } else if(filtroSel === 'todos'){
+    // TODOS: ruta + histórico
     destinatarios = clientes.slice();
   } else if(filtroSel === 'distrito'){
     if(distritosSeleccionados.size === 0){
@@ -948,10 +1122,130 @@ async function guardarBorrador(){
 // Enviar ahora (guardar + disparar envío)
 // ════════════════════════════════════════════════════════════════════
 async function enviarAhora(){
-  await guardarCampana(true);
+  var mensaje = document.getElementById('c-mensaje').value.trim();
+  if(!document.getElementById('c-nombre').value.trim()){ mostrarToast('⚠️ Falta nombre de la campaña'); return; }
+  if(!mensaje){ mostrarToast('⚠️ Falta el mensaje'); return; }
+
+  // Resolver a quién le va a llegar ANTES de mandar nada
+  var dest;
+  try{
+    mostrarToast('Revisando destinatarios... ⏳');
+    dest = await obtenerDestinatarios();
+  }catch(e){
+    mostrarToast('⚠️ ' + e.message);
+    return;
+  }
+  if(!dest || dest.length === 0){
+    mostrarToast('⚠️ No hay destinatarios para el filtro elegido');
+    return;
+  }
+
+  mostrarConfirmacionEnvio(dest, mensaje);
 }
 
-async function guardarCampana(disparar){
+// ════════════════════════════════════════════════════════════════════
+// Pantalla de confirmación — TE MUESTRA A QUIÉN LE VA A LLEGAR
+// Esta es la red de seguridad: nada sale sin que veas los nombres.
+// ════════════════════════════════════════════════════════════════════
+var _destPendientes = null;
+
+function mostrarConfirmacionEnvio(dest, mensaje){
+  _destPendientes = dest;
+
+  var hist = dest.filter(function(d){ return d.origen === 'historico'; }).length;
+  var hoy  = dest.filter(function(d){ return d.origen === 'ruta'; }).length;
+  var vel  = parseInt(document.getElementById('c-velocidad').value, 10) || 8;
+  var mins = Math.ceil((dest.length * vel) / 60);
+
+  document.getElementById('env-total').textContent = dest.length;
+  document.getElementById('env-tiempo').textContent = '~' + mins + ' min';
+
+  var desglose = '';
+  if(hoy > 0)  desglose += '<span style="color:#065F46; font-weight:700;">' + hoy + ' de la ruta de hoy</span>';
+  if(hist > 0) desglose += (desglose ? ' · ' : '') + '<span style="color:#991B1B; font-weight:700;">' + hist + ' del histórico ⚠️</span>';
+  if(!desglose) desglose = '<span style="color:var(--muted);">Lista manual</span>';
+  document.getElementById('env-desglose').innerHTML = desglose;
+
+  // Lista completa de nombres — para que VEAS quién
+  var html = '';
+  dest.forEach(function(d){
+    var tag = d.origen === 'historico'
+      ? '<span style="font-size:0.55rem; font-weight:800; background:#FEE2E2; color:#991B1B; padding:2px 5px; border-radius:4px;">HIST</span>'
+      : (d.origen === 'ruta' ? '<span style="font-size:0.55rem; font-weight:800; background:#D1FAE5; color:#065F46; padding:2px 5px; border-radius:4px;">HOY</span>' : '');
+    html += '<div style="display:flex; align-items:center; gap:8px; padding:7px 10px; border-bottom:1px solid var(--border);">' +
+      '<div style="flex:1; min-width:0;">' +
+      '<div style="font-size:0.78rem; font-weight:600;">' + (d.nombre || 'Cliente') + '</div>' +
+      '<div style="font-size:0.65rem; color:var(--muted);">' + d.cel + '</div>' +
+      '</div>' + tag + '</div>';
+  });
+  document.getElementById('env-lista').innerHTML = html;
+
+  document.getElementById('env-preview').textContent = resolverMensaje(mensaje, dest[0]);
+  var guardado = localStorage.getItem('mi_numero_prueba');
+  if(guardado) document.getElementById('mi-numero').value = guardado;
+  document.getElementById('modal-envio').classList.add('show');
+}
+
+function cerrarConfirmEnvio(){
+  document.getElementById('modal-envio').classList.remove('show');
+  _destPendientes = null;
+}
+
+// Enviarme SOLO a mí primero — prueba segura
+async function enviarPruebaAMi(){
+  var miNum = localStorage.getItem('mi_numero_prueba') || '';
+  if(!miNum){
+    mostrarToast('⚠️ Configura tu número en el campo de abajo primero');
+    return;
+  }
+  var mensaje = document.getElementById('c-mensaje').value.trim();
+  var yo = { cel: miNum, nombre: 'Rudy (prueba)', dist: '', prod: '', cobrar: '', origen: 'prueba' };
+  try{
+    mostrarToast('Enviando prueba solo a ti... ⏳');
+    var docRef = await db.collection('campanas').add({
+      nombre: '[PRUEBA] ' + (document.getElementById('c-nombre').value.trim() || 'sin nombre'),
+      mensaje: mensaje,
+      multimedia: null,
+      filtro: { tipo: 'prueba' },
+      velocidad: 8,
+      estado: 'enviando',
+      creada_en: new Date().toISOString(),
+      uid_rudy: UID_BOT,
+      es_prueba: true,
+      stats: { total: 1, enviados: 0, fallidos: 0, pendientes: 1 }
+    });
+    await db.collection('cola_envio').doc(miNum + '_' + docRef.id).set({
+      campaign_id: docRef.id,
+      celular: miNum,
+      nombre: 'Rudy (prueba)',
+      mensaje: resolverMensaje(mensaje, yo),
+      multimedia: null,
+      velocidad: 8,
+      status: 'pendiente',
+      creada_en: new Date().toISOString(),
+      intentos: 0
+    });
+    mostrarToast('✅ Prueba enviada solo a ti. Revisa tu WhatsApp.');
+  }catch(e){
+    mostrarToast('⚠️ Error en la prueba: ' + e.message);
+  }
+}
+
+function guardarMiNumero(){
+  var n = String(document.getElementById('mi-numero').value || '').replace(/\D/g,'');
+  if(n.length < 9){ mostrarToast('⚠️ Número inválido'); return; }
+  localStorage.setItem('mi_numero_prueba', n);
+  mostrarToast('✓ Tu número guardado: ' + n);
+}
+
+// Confirmado -> ahora sí dispara
+async function confirmarYEnviar(){
+  document.getElementById('modal-envio').classList.remove('show');
+  await guardarCampana(true, _destPendientes);
+  _destPendientes = null;
+}
+
+async function guardarCampana(disparar, destYaResueltos){
   var nombre = document.getElementById('c-nombre').value.trim();
   var mensaje = document.getElementById('c-mensaje').value.trim();
   var velocidad = parseInt(document.getElementById('c-velocidad').value, 10) || 8;
@@ -959,25 +1253,11 @@ async function guardarCampana(disparar){
   if(!nombre){ mostrarToast('⚠️ Falta nombre de la campaña'); return; }
   if(!mensaje){ mostrarToast('⚠️ Falta el mensaje'); return; }
 
-  // Si disparamos, validar destinatarios antes de guardar
-  var destinatarios = [];
-  if(disparar){
-    try{
-      mostrarToast('Cargando destinatarios... ⏳');
-      destinatarios = await obtenerDestinatarios();
-      if(destinatarios.length === 0){
-        mostrarToast('⚠️ No hay destinatarios para el filtro elegido');
-        return;
-      }
-      if(destinatarios.length > 200){
-        if(!confirm('Vas a enviar a ' + destinatarios.length + ' clientes. Con Baileys esto es riesgoso. ¿Continuar?')){
-          return;
-        }
-      }
-    }catch(e){
-      mostrarToast('⚠️ ' + e.message);
-      return;
-    }
+  // Los destinatarios ya vienen resueltos y CONFIRMADOS desde enviarAhora()
+  var destinatarios = destYaResueltos || [];
+  if(disparar && destinatarios.length === 0){
+    mostrarToast('⚠️ No hay destinatarios');
+    return;
   }
 
   // Subir multimedia si hay
