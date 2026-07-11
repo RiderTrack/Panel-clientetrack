@@ -46,6 +46,7 @@ jobs:
           [ -f configuracion.html ] && cp configuracion.html www/ || echo "⚠️ configuracion.html no encontrado (ok)"
           [ -f catalogo.html ] && cp catalogo.html www/ || echo "⚠️ catalogo.html no encontrado (ok)"
           [ -f estadisticas.html ] && cp estadisticas.html www/ || echo "⚠️ estadisticas.html no encontrado (ok)"
+          [ -f campanas.html ] && cp campanas.html www/ || echo "⚠️ campanas.html no encontrado (ok)"
           echo "✅ Web assets copiados (los que existan)"
 
       # ════════════════════════════════════════════════════════════════════
