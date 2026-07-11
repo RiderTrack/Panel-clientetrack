@@ -262,6 +262,9 @@
 <div class="top">
   <div class="top-row">
     <h1><i class="fa-solid fa-bullhorn"></i> Campañas <span class="contador" id="contador">0 campaña(s)</span></h1>
+    <button onclick="limpiarCola()" title="Limpiar cola de envío" style="background:var(--card); border:1px solid var(--border); border-radius:12px; width:40px; height:40px; font-size:0.95rem; color:var(--muted); cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center;">
+      <i class="fa-solid fa-broom"></i>
+    </button>
     <button class="btn-nuevo" onclick="abrirEditor()">
       <i class="fa-solid fa-plus"></i> Nueva
     </button>
@@ -1193,6 +1196,52 @@ async function duplicarCampana(){
     cerrarDetalle();
   }catch(e){
     mostrarToast('⚠️ Error duplicando: ' + e.message);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Limpiar cola de envío — mantenimiento desde el panel (sin entrar a Firebase)
+// cola_envio es solo el "buzón" entre panel y bot. NO es historial.
+// Si quedan docs en 'pendiente', el bot los reenviará al reiniciarse.
+// ════════════════════════════════════════════════════════════════════
+async function limpiarCola(){
+  try{
+    mostrarToast('Revisando la cola... ⏳');
+    var snap = await db.collection('cola_envio').get();
+
+    if(snap.empty){
+      mostrarToast('✓ La cola ya está vacía');
+      return;
+    }
+
+    // Contar qué hay para avisarle bien al usuario
+    var pendientes = 0, otros = 0;
+    snap.forEach(function(d){
+      var s = d.data().status;
+      if(s === 'pendiente' || s === 'procesando') pendientes++;
+      else otros++;
+    });
+
+    var aviso = 'Se borrarán ' + snap.size + ' documento(s) de la cola.';
+    if(pendientes > 0){
+      aviso += ' ⚠️ OJO: ' + pendientes + ' están PENDIENTES o EN PROCESO — si los borras, esos mensajes NO se enviarán nunca.';
+    }
+    aviso += ' Esto NO borra tus campañas ni el historial.';
+
+    confirmar('¿Limpiar cola de envío?', aviso, 'Sí, limpiar', async function(){
+      try{
+        mostrarToast('Limpiando... ⏳');
+        var n = 0;
+        for(var i = 0; i < snap.docs.length; i++){
+          try { await snap.docs[i].ref.delete(); n++; } catch(e){}
+        }
+        mostrarToast('🧹 ' + n + ' documento(s) borrados de la cola');
+      }catch(e){
+        mostrarToast('⚠️ Error limpiando: ' + e.message);
+      }
+    });
+  }catch(e){
+    mostrarToast('⚠️ Error leyendo la cola: ' + e.message);
   }
 }
 
