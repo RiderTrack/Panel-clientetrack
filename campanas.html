@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrackVerse | Campañas</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<!-- Firebase: Firestore + Storage (F2) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  :root{
+    --bg:#F4F7FE; --card:#FFFFFF; --border:#E2E8F0;
+    --blue:#0052FF; --purple:#7C3AED; --green:#10B981; --amber:#F59E0B; --red:#EF4444;
+    --text:#0F172A; --muted:#64748B;
+    --radius:20px; --shadow:0 4px 16px rgba(15,23,42,0.06);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'Inter',sans-serif; line-height:1.5;
+    min-height:100vh; min-height:100dvh;
+  }
+
+  /* ===== Header ===== */
+  .top{
+    position:sticky; top:0; z-index:50;
+    background:rgba(244,247,254,0.92); backdrop-filter:blur(10px);
+    padding:16px 16px 10px; border-bottom:1px solid var(--border);
+  }
+  .top-row{display:flex; align-items:center; gap:10px;}
+  .top h1{margin:0; font-size:1.35rem; font-weight:800; letter-spacing:-0.5px; display:flex; align-items:center; gap:10px; flex:1;}
+  .top h1 i{color:var(--blue); font-size:1.1rem;}
+  .contador{font-size:0.78rem; color:var(--muted); font-weight:500;}
+  .btn-nuevo{
+    background:linear-gradient(135deg, var(--blue), var(--purple)); color:#fff; border:none;
+    border-radius:12px; padding:0 16px; height:40px; font-family:inherit; font-weight:700;
+    font-size:0.82rem; cursor:pointer; display:flex; align-items:center; gap:7px; flex-shrink:0;
+    box-shadow:0 4px 14px rgba(0,82,255,0.25);
+  }
+  .btn-nuevo:active{transform:scale(0.95);}
+
+  .search-wrap{position:relative; margin-top:12px;}
+  .search-wrap i{position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--muted); font-size:0.85rem;}
+  #buscador{
+    width:100%; background:var(--card); border:1px solid var(--border); border-radius:14px;
+    padding:12px 14px 12px 38px; font-size:0.9rem; font-family:inherit; outline:none; color:var(--text);
+  }
+  #buscador:focus{border-color:var(--blue); box-shadow:0 0 0 3px rgba(0,82,255,0.08);}
+
+  .filtros{display:flex; gap:8px; margin-top:12px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none;}
+  .filtros::-webkit-scrollbar{display:none;}
+  .chip{
+    flex-shrink:0; background:var(--card); border:1px solid var(--border); border-radius:999px;
+    padding:7px 14px; font-size:0.76rem; font-weight:600; color:var(--muted); cursor:pointer;
+  }
+  .chip.activo{background:var(--text); border-color:var(--text); color:#fff;}
+  .chip.borrador{background:#FEF3C7; border-color:#F59E0B; color:#92400E;}
+  .chip.borrador.activo{background:#F59E0B; border-color:#F59E0B; color:#fff;}
+  .chip.enviando{background:#DBEAFE; border-color:#3B82F6; color:#1E40AF;}
+  .chip.enviando.activo{background:#3B82F6; border-color:#3B82F6; color:#fff;}
+  .chip.completada{background:#D1FAE5; border-color:#10B981; color:#065F46;}
+  .chip.completada.activo{background:#10B981; border-color:#10B981; color:#fff;}
+
+  /* ===== Lista de campañas ===== */
+  main{padding:14px 16px 80px; max-width:900px; margin:0 auto;}
+  .camp-card{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px 16px; margin-bottom:12px; box-shadow:var(--shadow); cursor:pointer;
+    transition:transform .15s;
+  }
+  .camp-card:active{transform:scale(0.99);}
+  .camp-row{display:flex; align-items:center; gap:12px;}
+  .camp-icon{
+    width:46px; height:46px; border-radius:14px; display:flex; align-items:center; justify-content:center;
+    font-size:1.2rem; color:#fff; flex-shrink:0;
+  }
+  .camp-icon.texto{background:linear-gradient(135deg,#3B82F6,#1D4ED8);}
+  .camp-icon.imagen{background:linear-gradient(135deg,#8B5CF6,#6D28D9);}
+  .camp-icon.pdf{background:linear-gradient(135deg,#EF4444,#DC2626);}
+  .camp-icon.audio{background:linear-gradient(135deg,#F59E0B,#D97706);}
+  .camp-body{flex:1; min-width:0;}
+  .camp-nombre{font-weight:700; font-size:0.92rem; line-height:1.3; margin:0 0 3px;}
+  .camp-preview{
+    font-size:0.74rem; color:var(--muted); line-height:1.4;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .camp-meta{display:flex; gap:10px; font-size:0.7rem; color:var(--muted); margin-top:6px; align-items:center; flex-wrap:wrap;}
+  .camp-meta span{display:flex; align-items:center; gap:4px;}
+  .camp-meta i{font-size:0.78rem;}
+  .camp-estado{
+    font-size:0.62rem; font-weight:800; padding:3px 9px; border-radius:7px;
+    text-transform:uppercase; letter-spacing:0.4px; flex-shrink:0;
+  }
+  .camp-estado.borrador{background:#FEF3C7; color:#92400E;}
+  .camp-estado.enviando{background:#DBEAFE; color:#1E40AF;}
+  .camp-estado.completada{background:#D1FAE5; color:#065F46;}
+  .camp-estado.fallida{background:#FEE2E2; color:#991B1B;}
+
+  /* Barra de progreso de campaña en curso */
+  .camp-progreso{
+    margin-top:10px; padding-top:10px; border-top:1px solid var(--border);
+  }
+  .camp-progreso-bar{
+    height:6px; background:var(--bg); border-radius:999px; overflow:hidden; margin-bottom:6px;
+  }
+  .camp-progreso-fill{
+    height:100%; background:linear-gradient(90deg, var(--blue), var(--green));
+    border-radius:999px; transition:width .3s;
+  }
+  .camp-progreso-txt{font-size:0.68rem; color:var(--muted); display:flex; justify-content:space-between;}
+
+  .vacio{text-align:center; color:var(--muted); padding:60px 20px; font-size:0.9rem;}
+  .vacio i{font-size:2.8rem; display:block; margin-bottom:14px; opacity:0.3;}
+  .vacio b{display:block; color:var(--text); font-size:1rem; margin-bottom:6px;}
+  .vacio small{font-size:0.76rem;}
+
+  /* ===== Modales (deslizantes desde abajo) ===== */
+  .modal-back{
+    position:fixed; inset:0; background:rgba(15,23,42,0.45); backdrop-filter:blur(3px);
+    z-index:200; display:flex; align-items:flex-end; justify-content:center;
+    opacity:0; pointer-events:none; transition:opacity .2s;
+  }
+  .modal-back.show{opacity:1; pointer-events:auto;}
+  .hoja{
+    background:var(--card); border-radius:26px 26px 0 0; width:100%; max-width:560px;
+    padding:20px 20px 32px; max-height:88vh; max-height:88dvh; overflow-y:auto;
+    transform:translateY(40px); transition:transform .28s cubic-bezier(.3,1.2,.5,1);
+  }
+  .modal-back.show .hoja{transform:translateY(0);}
+  .grab{width:44px; height:4px; border-radius:4px; background:var(--border); margin:0 auto 16px;}
+  .hoja h2{margin:0 0 14px; font-size:1.15rem; letter-spacing:-0.3px; display:flex; align-items:center; gap:10px;}
+  .hoja h2 i{color:var(--blue);}
+
+  .campo{margin-bottom:13px;}
+  .campo label{display:block; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); margin-bottom:5px;}
+  .campo input, .campo textarea, .campo select{
+    width:100%; background:var(--bg); border:1px solid var(--border); border-radius:12px;
+    padding:11px 13px; font-size:0.9rem; font-family:inherit; color:var(--text); outline:none;
+  }
+  .campo input:focus, .campo textarea:focus, .campo select:focus{border-color:var(--blue);}
+  .campo textarea{min-height:90px; resize:vertical;}
+  .fila-2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+
+  /* Variables quick-insert */
+  .vars-hint{font-size:0.7rem; color:var(--muted); margin-top:6px; line-height:1.5;}
+  .vars-hint b{color:var(--text); font-weight:700;}
+  .vars-chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;}
+  .var-chip{
+    background:rgba(0,82,255,0.08); color:var(--blue); border:1px solid rgba(0,82,255,0.2);
+    padding:5px 10px; border-radius:8px; font-size:0.72rem; font-weight:600; cursor:pointer;
+    font-family:'Courier New',monospace;
+  }
+  .var-chip:active{transform:scale(0.95);}
+
+  /* Filtros de destinatarios — toggle */
+  .filtro-card{
+    background:var(--bg); border:1px solid var(--border); border-radius:14px; padding:12px 14px; margin-bottom:10px;
+  }
+  .filtro-card.selected{border-color:var(--blue); background:rgba(0,82,255,0.04);}
+  .filtro-card-head{display:flex; align-items:center; gap:10px; cursor:pointer;}
+  .filtro-card-head i{font-size:1rem; color:var(--muted); width:18px;}
+  .filtro-card.selected .filtro-card-head i{color:var(--blue);}
+  .filtro-card-head b{flex:1; font-size:0.85rem;}
+  .filtro-card-head .radio{
+    width:18px; height:18px; border-radius:50%; border:2px solid var(--border); flex-shrink:0; position:relative;
+  }
+  .filtro-card.selected .filtro-card-head .radio{border-color:var(--blue);}
+  .filtro-card.selected .filtro-card-head .radio::after{
+    content:''; position:absolute; inset:3px; background:var(--blue); border-radius:50%;
+  }
+  .filtro-card-body{display:none; padding-top:10px; margin-top:8px; border-top:1px solid var(--border);}
+  .filtro-card.selected .filtro-card-body{display:block;}
+
+  /* Switch */
+  .switch-row{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--bg); border:1px solid var(--border); border-radius:12px;
+    padding:11px 13px; margin-bottom:10px;
+  }
+  .switch-row .lbl{display:flex; flex-direction:column; gap:2px;}
+  .switch-row .lbl b{font-size:0.85rem; font-weight:700;}
+  .switch-row .lbl small{font-size:0.68rem; color:var(--muted);}
+  .switch{
+    position:relative; width:44px; height:24px; background:#CBD5E1; border-radius:999px;
+    cursor:pointer; transition:background .2s; flex-shrink:0;
+  }
+  .switch.on{background:var(--green);}
+  .switch::after{
+    content:''; position:absolute; left:2px; top:2px; width:20px; height:20px;
+    background:#fff; border-radius:50%; transition:transform .2s;
+  }
+  .switch.on::after{transform:translateX(20px);}
+
+  /* Multimedia zone */
+  .media-zone{
+    border:2px dashed var(--border); border-radius:16px; padding:18px; text-align:center;
+    cursor:pointer; color:var(--muted); font-size:0.8rem;
+  }
+  .media-zone i{font-size:1.6rem; display:block; margin-bottom:8px; color:var(--blue);}
+  .media-zone b{display:block; color:var(--text); font-size:0.85rem; margin-bottom:2px;}
+
+  .tipo-media{display:flex; gap:8px; margin-bottom:10px;}
+  .tipo-media-btn{
+    flex:1; background:var(--bg); border:1px solid var(--border); border-radius:12px;
+    padding:10px; font-family:inherit; font-size:0.75rem; font-weight:600; color:var(--muted); cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+  }
+  .tipo-media-btn i{font-size:1.1rem;}
+  .tipo-media-btn.activo{background:var(--blue); color:#fff; border-color:var(--blue);}
+
+  .hoja-btns{display:flex; gap:10px; margin-top:18px;}
+  .btn{
+    flex:1; border:none; border-radius:14px; padding:13px; font-family:inherit;
+    font-weight:700; font-size:0.88rem; cursor:pointer;
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn.sec{background:var(--bg); color:var(--muted); border:1px solid var(--border);}
+  .btn.pri{background:linear-gradient(135deg, var(--blue), var(--purple)); color:#fff; box-shadow:0 4px 14px rgba(0,82,255,0.25);}
+  .btn.wa{background:linear-gradient(135deg,#10B981,#059669); color:#fff;}
+
+  /* Vista previa de mensaje */
+  .preview-card{
+    background:#E5DDD5; border-radius:14px; padding:14px; margin-top:8px;
+    position:relative; max-width:85%;
+  }
+  .preview-card::after{
+    content:''; position:absolute; left:-7px; top:14px; width:0; height:0;
+    border-right:8px solid #E5DDD5; border-top:8px solid transparent; border-bottom:8px solid transparent;
+  }
+  .preview-text{font-size:0.82rem; line-height:1.5; color:#111B21; white-space:pre-wrap;}
+  .preview-time{font-size:0.62rem; color:#8696A0; text-align:right; margin-top:4px;}
+
+  /* Toast */
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:#1E293B; color:#fff; padding:11px 20px; border-radius:14px;
+    font-size:0.82rem; font-weight:500; z-index:9999;
+    box-shadow:0 8px 24px rgba(0,0,0,0.3); opacity:0; pointer-events:none;
+    transition:opacity .2s, transform .2s;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  /* Detail modal — stats */
+  .stats-grid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin:14px 0;}
+  .stat-box{
+    background:var(--bg); border-radius:14px; padding:12px 8px; text-align:center;
+  }
+  .stat-box .num{font-size:1.4rem; font-weight:800; line-height:1;}
+  .stat-box .lbl{font-size:0.65rem; color:var(--muted); margin-top:4px; font-weight:600; text-transform:uppercase; letter-spacing:0.3px;}
+  .stat-box.enviados .num{color:var(--green);}
+  .stat-box.fallidos .num{color:var(--red);}
+  .stat-box.pendientes .num{color:var(--amber);}
+</style>
+</head>
+<body>
+
+<!-- ===== Header ===== -->
+<div class="top">
+  <div class="top-row">
+    <h1><i class="fa-solid fa-bullhorn"></i> Campañas <span class="contador" id="contador">0 campaña(s)</span></h1>
+    <button class="btn-nuevo" onclick="abrirEditor()">
+      <i class="fa-solid fa-plus"></i> Nueva
+    </button>
+  </div>
+  <div class="search-wrap">
+    <i class="fa-solid fa-search"></i>
+    <input id="buscador" placeholder="Buscar campaña por nombre o mensaje...">
+  </div>
+  <div class="filtros" id="filtros">
+    <div class="chip activo" data-filtro="todas">Todas</div>
+    <div class="chip borrador" data-filtro="borrador">Borradores</div>
+    <div class="chip enviando" data-filtro="enviando">En curso</div>
+    <div class="chip completada" data-filtro="completada">Completadas</div>
+  </div>
+</div>
+
+<!-- ===== Lista de campañas ===== -->
+<main>
+  <div id="lista">
+    <!-- Las campañas se renderizan acá por JS (F2 conectará a Firestore) -->
+  </div>
+
+  <!-- Estado vacío (se muestra cuando no hay campañas) -->
+  <div class="vacio" id="vacio" style="display:none;">
+    <i class="fa-solid fa-bullhorn"></i>
+    <b>Aún no has creado campañas</b>
+    <small>Toca <b>"Nueva"</b> para enviar tu primer mensaje masivo a tus clientes.</small>
+  </div>
+</main>
+
+<!-- ===== Modal: Crear/Editar campaña ===== -->
+<div class="modal-back" id="modal-editor">
+  <div class="hoja">
+    <div class="grab"></div>
+    <h2><i class="fa-solid fa-paper-plane"></i> <span id="editor-titulo">Nueva campaña</span></h2>
+
+    <div class="campo">
+      <label>Nombre interno</label>
+      <input type="text" id="c-nombre" placeholder="Ej: Oferta viernes - Limonada">
+    </div>
+
+    <div class="campo">
+      <label>Mensaje</label>
+      <textarea id="c-mensaje" placeholder="Hola {nombre}! Hoy tenemos una oferta especial para ti 🎁"></textarea>
+      <div class="vars-chips">
+        <span class="var-chip" onclick="insertarVar('{nombre}')">{nombre}</span>
+        <span class="var-chip" onclick="insertarVar('{distrito}')">{distrito}</span>
+        <span class="var-chip" onclick="insertarVar('{producto}')">{producto}</span>
+        <span class="var-chip" onclick="insertarVar('{monto}')">{monto}</span>
+        <span class="var-chip" onclick="insertarVar('{precio_oferta}')">{precio_oferta}</span>
+      </div>
+      <div class="vars-hint">
+        Toca una variable para insertarla. Se reemplazará automáticamente por el dato de cada cliente al enviar.
+      </div>
+    </div>
+
+    <!-- Vista previa estilo WhatsApp -->
+    <div class="campo">
+      <label>Vista previa</label>
+      <div class="preview-card">
+        <div class="preview-text" id="preview-text">Hola María! Hoy tenemos una oferta especial para ti 🎁</div>
+        <div class="preview-time">12:34 ✓✓</div>
+      </div>
+    </div>
+
+    <!-- Multimedia -->
+    <div class="campo">
+      <label>Adjuntar multimedia (opcional)</label>
+      <div class="tipo-media">
+        <button class="tipo-media-btn activo" data-tipo="texto" onclick="selTipoMedia('texto')">
+          <i class="fa-solid fa-comment"></i> Solo texto
+        </button>
+        <button class="tipo-media-btn" data-tipo="imagen" onclick="selTipoMedia('imagen')">
+          <i class="fa-solid fa-image"></i> Imagen
+        </button>
+        <button class="tipo-media-btn" data-tipo="pdf" onclick="selTipoMedia('pdf')">
+          <i class="fa-solid fa-file-pdf"></i> PDF
+        </button>
+        <button class="tipo-media-btn" data-tipo="audio" onclick="selTipoMedia('audio')">
+          <i class="fa-solid fa-microphone"></i> Audio
+        </button>
+      </div>
+      <div class="media-zone" id="media-zone" style="display:none;">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+        <b>Toca para subir archivo</b>
+        <span>Máximo 5MB · JPG, PNG, PDF, MP3, OGG</span>
+      </div>
+    </div>
+
+    <!-- Filtros de destinatarios -->
+    <div class="campo">
+      <label>Destinatarios</label>
+
+      <div class="filtro-card selected" data-filtro-tipo="todos" onclick="selFiltro('todos')">
+        <div class="filtro-card-head">
+          <i class="fa-solid fa-users"></i>
+          <b>Todos los clientes</b>
+          <div class="radio"></div>
+        </div>
+        <div class="filtro-card-body">
+          <div style="font-size:0.78rem; color:var(--muted);">Se enviará a todos los clientes registrados en tu ruta activa.</div>
+        </div>
+      </div>
+
+      <div class="filtro-card" data-filtro-tipo="distrito" onclick="selFiltro('distrito')">
+        <div class="filtro-card-head">
+          <i class="fa-solid fa-location-dot"></i>
+          <b>Por distrito</b>
+          <div class="radio"></div>
+        </div>
+        <div class="filtro-card-body">
+          <div style="font-size:0.78rem; color:var(--muted); margin-bottom:8px;">Selecciona uno o más distritos:</div>
+          <div id="distritos-list" style="display:flex; flex-wrap:wrap; gap:6px;">
+            <!-- Se carga dinámicamente en F2 -->
+            <span class="var-chip">Comas</span>
+            <span class="var-chip">Los Olivos</span>
+            <span class="var-chip">San Martín</span>
+            <span class="var-chip">Independencia</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="filtro-card" data-filtro-tipo="manual" onclick="selFiltro('manual')">
+        <div class="filtro-card-head">
+          <i class="fa-solid fa-keyboard"></i>
+          <b>Lista manual de celulares</b>
+          <div class="radio"></div>
+        </div>
+        <div class="filtro-card-body">
+          <textarea id="c-manual" placeholder="51987654321&#10;51912345678&#10;51987654322" style="font-family:'Courier New',monospace; font-size:0.82rem; min-height:80px;"></textarea>
+          <div class="vars-hint">Un número por línea, con código de país (51) o sin él.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Velocidad anti-baneo -->
+    <div class="campo">
+      <label>Velocidad de envío (anti-baneo)</label>
+      <div class="switch-row">
+        <div class="lbl">
+          <b>1 mensaje cada <span id="vel-num">8</span> segundos</b>
+          <small id="vel-desc">Con 50 clientes: ~7 minutos en total. Recomendado.</small>
+        </div>
+        <input type="range" min="5" max="30" value="8" id="c-velocidad" style="flex:0 0 120px; accent-color:var(--blue);" oninput="actualizarVel(this.value)">
+      </div>
+    </div>
+
+    <div class="hoja-btns">
+      <button class="btn sec" onclick="cerrarEditor()">Cancelar</button>
+      <button class="btn pri" onclick="guardarBorrador()">Guardar borrador</button>
+      <button class="btn wa" onclick="enviarAhora()">Enviar ahora</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal: Detalle de campaña ===== -->
+<div class="modal-back" id="modal-detalle">
+  <div class="hoja">
+    <div class="grab"></div>
+    <h2><i class="fa-solid fa-chart-bar"></i> <span id="det-titulo">Detalle</span></h2>
+
+    <div style="font-size:0.78rem; color:var(--muted); margin-bottom:8px;" id="det-fecha">Creada el --</div>
+    <div style="background:var(--bg); border-radius:12px; padding:12px; margin-bottom:14px;">
+      <div style="font-size:0.7rem; color:var(--muted); text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:5px;">Mensaje enviado</div>
+      <div id="det-mensaje" style="font-size:0.82rem; line-height:1.5; white-space:pre-wrap;"></div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-box"><div class="num" id="det-total">0</div><div class="lbl">Total</div></div>
+      <div class="stat-box enviados"><div class="num" id="det-enviados">0</div><div class="lbl">Enviados</div></div>
+      <div class="stat-box fallidos"><div class="num" id="det-fallidos">0</div><div class="lbl">Fallidos</div></div>
+    </div>
+
+    <div style="background:var(--bg); border-radius:12px; padding:12px; margin-bottom:14px;">
+      <div style="font-size:0.7rem; color:var(--muted); text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:5px;">Progreso</div>
+      <div class="camp-progreso-bar"><div class="camp-progreso-fill" id="det-prog" style="width:0%;"></div></div>
+      <div style="font-size:0.7rem; color:var(--muted); display:flex; justify-content:space-between; margin-top:5px;">
+        <span id="det-prog-txt">0 / 0</span>
+        <span id="det-prog-pct">0%</span>
+      </div>
+    </div>
+
+    <div class="hoja-btns">
+      <button class="btn sec" onclick="cerrarDetalle()">Cerrar</button>
+      <button class="btn peligro" style="background:rgba(239,68,68,0.1); color:var(--red);" onclick="pausarCampana()" id="btn-pausar">Pausar</button>
+      <button class="btn wa" onclick="duplicarCampana()">Duplicar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════
+// F2 — Conexión a Firestore + Storage
+// ════════════════════════════════════════════════════════════════════
+
+// Firebase config — mismo del index.html del panel
+var firebaseConfig = {
+  apiKey: "AIzaSyDMnc-sRi3WqfgpI1Bo6ky6UVDwQSYUuj0",
+  authDomain: "trackverse-92323.firebaseapp.com",
+  projectId: "trackverse-92323",
+  storageBucket: "trackverse-92323.appspot.com",
+  messagingSenderId: "851606828420",
+  appId: "1:851606828420:web:873a892a091394693e59d1"
+};
+firebase.initializeApp(firebaseConfig);
+var db = firebase.firestore();
+var storage = firebase.storage();
+var UID_BOT = 'K8wx9X5GGOfindI1RGtIIQN3UGr1';
+
+// Estado en memoria
+var CAMPAÑAS = [];              // cache local de campañas
+var CACHE_CLIENTES = null;      // cache de clientes (evita lecturas repetidas)
+var filtroActual = 'todas';
+var tipoMediaSel = 'texto';
+var filtroSel = 'todos';
+var archivoMediaSel = null;     // File object del input file
+var distritosSeleccionados = new Set();
+var unsubscribeDetalle = null;  // listener de destinatarios en detalle
+
+// ════════════════════════════════════════════════════════════════════
+// Toast
+// ════════════════════════════════════════════════════════════════════
+function mostrarToast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2800);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Lista de campañas — onSnapshot tiempo real
+// ════════════════════════════════════════════════════════════════════
+function iniciarListenerCampanas(){
+  db.collection('campanas')
+    .where('uid_rudy','==', UID_BOT)
+    .onSnapshot(function(snap){
+      CAMPAÑAS = [];
+      snap.forEach(function(doc){
+        var d = doc.data();
+        d.id = doc.id;
+        CAMPAÑAS.push(d);
+      });
+      // Ordenar por creada_en descendente
+      CAMPAÑAS.sort(function(a,b){
+        return (b.creada_en || '').localeCompare(a.creada_en || '');
+      });
+      renderLista();
+    }, function(err){
+      console.error('Listener campañas:', err);
+      mostrarToast('⚠️ Error cargando campañas: ' + err.message);
+    });
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Cargar clientes (con caché) — para previsualizar destinatarios
+// ════════════════════════════════════════════════════════════════════
+async function cargarClientes(){
+  if(CACHE_CLIENTES) return CACHE_CLIENTES;
+  try{
+    // 1. Ruta activa (clientes del día)
+    var snap1 = await db.collection('ruta_activa').doc(UID_BOT).get();
+    var clientes = [];
+    if(snap1.exists){
+      var data = snap1.data();
+      (data.clientes || []).forEach(function(c){
+        clientes.push({
+          cel: normalizarTel(c.cel),
+          nombre: c.nombre || 'Cliente',
+          prod: c.prod || '',
+          cobrar: c.cobrar || '',
+          dir: c.dir || '',
+          dist: (c.dist || '').trim()
+        });
+      });
+    }
+    // 2. Clientes registrados (BD histórica)
+    var snap2 = await db.collection('clientes_registrados').get();
+    snap2.forEach(function(d){
+      var c = d.data();
+      var tel = normalizarTel(c.telefono);
+      if(tel && !clientes.find(function(x){ return x.cel === tel; })){
+        clientes.push({
+          cel: tel,
+          nombre: c.nombre || 'Cliente',
+          prod: c.prod || '',
+          cobrar: c.cobrar || '',
+          dir: c.dir || '',
+          dist: (c.dist || '').trim()
+        });
+      }
+    });
+    CACHE_CLIENTES = clientes;
+    return clientes;
+  }catch(e){
+    console.error('cargarClientes:', e);
+    throw e;
+  }
+}
+
+function normalizarTel(t){
+  t = String(t||'').replace(/\D/g,'');
+  if(t.indexOf('51') === 0 && t.length > 9) t = t.slice(2);
+  return t;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Render lista
+// ════════════════════════════════════════════════════════════════════
+function iconoPorTipoMedia(tipo){
+  return tipo === 'imagen' ? 'fa-solid fa-image'
+       : tipo === 'pdf' ? 'fa-solid fa-file-pdf'
+       : tipo === 'audio' ? 'fa-solid fa-microphone'
+       : 'fa-solid fa-comment';
+}
+function clasePorTipoMedia(tipo){
+  return tipo === 'imagen' ? 'imagen'
+       : tipo === 'pdf' ? 'pdf'
+       : tipo === 'audio' ? 'audio'
+       : 'texto';
+}
+
+function renderLista(){
+  var cont = document.getElementById('lista');
+  var vacio = document.getElementById('vacio');
+  var visibles = CAMPAÑAS.filter(function(c){
+    if(filtroActual === 'todas') return true;
+    return c.estado === filtroActual;
+  });
+
+  document.getElementById('contador').textContent = visibles.length + ' campaña(s)';
+  vacio.style.display = visibles.length === 0 ? 'block' : 'none';
+  if(visibles.length === 0){ cont.innerHTML = ''; return; }
+
+  cont.innerHTML = visibles.map(function(c){
+    var stats = c.stats || {total:0, enviados:0, fallidos:0, pendientes:0};
+    var progreso = stats.total > 0 ? Math.round((stats.enviados / stats.total) * 100) : 0;
+    var enCurso = c.estado === 'enviando';
+    var iconClass = iconoPorTipoMedia(c.multimedia ? c.multimedia.tipo : 'texto');
+    var tipoClass = clasePorTipoMedia(c.multimedia ? c.multimedia.tipo : 'texto');
+    var fechaCorta = (c.creada_en || '').slice(0,16).replace('T',' ');
+
+    var progresoHTML = enCurso ? `
+      <div class="camp-progreso">
+        <div class="camp-progreso-bar">
+          <div class="camp-progreso-fill" style="width:${progreso}%;"></div>
+        </div>
+        <div class="camp-progreso-txt">
+          <span>${stats.enviados} / ${stats.total} enviados</span>
+          <span>${progreso}%</span>
+        </div>
+      </div>` : '';
+
+    return `
+      <div class="camp-card" onclick="abrirDetalle('${c.id}')">
+        <div class="camp-row">
+          <div class="camp-icon ${tipoClass}"><i class="${iconClass}"></i></div>
+          <div class="camp-body">
+            <div class="camp-nombre">${escapeHtml(c.nombre || 'Sin nombre')}</div>
+            <div class="camp-preview">${escapeHtml(c.mensaje || '')}</div>
+            <div class="camp-meta">
+              <span><i class="fa-solid fa-users"></i> ${stats.total || '—'}</span>
+              <span><i class="fa-solid fa-clock"></i> 1 cada ${c.velocidad || 8}s</span>
+              <span><i class="fa-solid fa-calendar"></i> ${fechaCorta}</span>
+            </div>
+          </div>
+          <div class="camp-estado ${c.estado}">${c.estado}</div>
+        </div>
+        ${progresoHTML}
+      </div>`;
+  }).join('');
+}
+
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+// Filtros
+document.querySelectorAll('#filtros .chip').forEach(function(chip){
+  chip.addEventListener('click', function(){
+    document.querySelectorAll('#filtros .chip').forEach(function(c){ c.classList.remove('activo'); });
+    chip.classList.add('activo');
+    filtroActual = chip.dataset.filtro;
+    renderLista();
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════
+// Editor
+// ════════════════════════════════════════════════════════════════════
+function abrirEditor(){
+  // Limpiar campos
+  document.getElementById('c-nombre').value = '';
+  document.getElementById('c-mensaje').value = '';
+  document.getElementById('c-manual').value = '';
+  document.getElementById('c-velocidad').value = 8;
+  actualizarVel(8);
+  selTipoMedia('texto');
+  selFiltro('todos');
+  archivoMediaSel = null;
+  distritosSeleccionados = new Set();
+  cargarDistritosDisponibles();
+  document.getElementById('modal-editor').classList.add('show');
+  actualizarPreview();
+}
+
+function cerrarEditor(){
+  document.getElementById('modal-editor').classList.remove('show');
+}
+
+function insertarVar(v){
+  var t = document.getElementById('c-mensaje');
+  var start = t.selectionStart || t.value.length;
+  var end = t.selectionEnd || t.value.length;
+  t.value = t.value.slice(0, start) + v + t.value.slice(end);
+  t.focus();
+  t.setSelectionRange(start + v.length, start + v.length);
+  actualizarPreview();
+}
+
+function actualizarPreview(){
+  var txt = document.getElementById('c-mensaje').value || 'Hola María! Hoy tenemos una oferta especial para ti 🎁';
+  txt = txt.replace(/\{nombre\}/g, 'María')
+           .replace(/\{distrito\}/g, 'Comas')
+           .replace(/\{producto\}/g, 'Limonada')
+           .replace(/\{monto\}/g, 'S/25')
+           .replace(/\{precio_oferta\}/g, 'S/5');
+  document.getElementById('preview-text').textContent = txt;
+}
+document.getElementById('c-mensaje').addEventListener('input', actualizarPreview);
+
+function selTipoMedia(tipo){
+  tipoMediaSel = tipo;
+  document.querySelectorAll('.tipo-media-btn').forEach(function(b){
+    b.classList.toggle('activo', b.dataset.tipo === tipo);
+  });
+  var zone = document.getElementById('media-zone');
+  zone.style.display = (tipo === 'texto') ? 'none' : 'block';
+  if(tipo !== 'texto'){
+    var icono = tipo === 'imagen' ? 'fa-image'
+              : tipo === 'pdf' ? 'fa-file-pdf'
+              : tipo === 'audio' ? 'fa-microphone' : 'fa-cloud-arrow-up';
+    var titulo = tipo === 'imagen' ? 'Subir imagen'
+               : tipo === 'pdf' ? 'Subir PDF'
+               : tipo === 'audio' ? 'Subir audio' : '';
+    zone.querySelector('i').className = 'fa-solid ' + icono;
+    zone.querySelector('b').textContent = titulo;
+    // Reset zona
+    zone.querySelector('span').textContent = 'Máximo 5MB · Toca para seleccionar';
+  }
+  archivoMediaSel = null;
+}
+
+// Click en media-zone → abrir input file
+document.getElementById('media-zone').addEventListener('click', function(){
+  var input = document.createElement('input');
+  input.type = 'file';
+  if(tipoMediaSel === 'imagen') input.accept = 'image/jpeg,image/png,image/webp';
+  else if(tipoMediaSel === 'pdf') input.accept = 'application/pdf';
+  else if(tipoMediaSel === 'audio') input.accept = 'audio/mpeg,audio/ogg,audio/mp3';
+  input.onchange = function(e){
+    var f = e.target.files[0];
+    if(!f) return;
+    if(f.size > 5 * 1024 * 1024){
+      mostrarToast('⚠️ Archivo muy grande. Máximo 5MB.');
+      return;
+    }
+    archivoMediaSel = f;
+    var zone = document.getElementById('media-zone');
+    zone.querySelector('b').textContent = '✓ ' + f.name;
+    zone.querySelector('span').textContent = (f.size/1024).toFixed(0) + ' KB · Toca para cambiar';
+  };
+  input.click();
+});
+
+function selFiltro(tipo){
+  filtroSel = tipo;
+  document.querySelectorAll('.filtro-card').forEach(function(c){
+    c.classList.toggle('selected', c.dataset.filtroTipo === tipo);
+  });
+}
+
+function actualizarVel(val){
+  document.getElementById('vel-num').textContent = val;
+  var desc = 'Recomendado: 8-12 segundos. ';
+  if(val < 7) desc = '⚠️ Riesgoso: WhatsApp puede detectar spam. ';
+  else if(val < 12) desc = '✓ Velocidad segura para Baileys. ';
+  else desc = '✓ Muy seguro pero lento. ';
+  document.getElementById('vel-desc').textContent = desc;
+}
+
+// Cargar distritos disponibles desde clientes
+async function cargarDistritosDisponibles(){
+  try{
+    var clientes = await cargarClientes();
+    var distritos = {};
+    clientes.forEach(function(c){
+      if(c.dist) distritos[c.dist] = (distritos[c.dist] || 0) + 1;
+    });
+    var cont = document.getElementById('distritos-list');
+    var arr = Object.keys(distritos).sort();
+    if(arr.length === 0){
+      cont.innerHTML = '<small style="color:var(--muted);">No hay distritos en tus clientes todavía.</small>';
+      return;
+    }
+    cont.innerHTML = arr.map(function(d){
+      return '<span class="var-chip" data-distrito="'+escapeHtml(d)+'" onclick="toggleDistrito(this, \''+escapeHtml(d).replace(/'/g,"\\'")+'\')">'+escapeHtml(d)+' <small style="opacity:0.6;">('+distritos[d]+')</small></span>';
+    }).join('');
+  }catch(e){
+    console.error('cargarDistritos:', e);
+    document.getElementById('distritos-list').innerHTML = '<small style="color:var(--red);">Error cargando distritos</small>';
+  }
+}
+
+function toggleDistrito(el, dist){
+  if(distritosSeleccionados.has(dist)){
+    distritosSeleccionados.delete(dist);
+    el.style.background = '';
+    el.style.color = '';
+  } else {
+    distritosSeleccionados.add(dist);
+    el.style.background = 'var(--blue)';
+    el.style.color = '#fff';
+    el.style.borderColor = 'var(--blue)';
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Subir multimedia a Storage
+// ════════════════════════════════════════════════════════════════════
+async function subirMultimedia(file, tipo){
+  mostrarToast('📤 Subiendo archivo... ⏳');
+  var ext = file.name.split('.').pop().toLowerCase();
+  var nombreStorage = 'campanas/' + Date.now() + '_' + Math.random().toString(36).slice(2,8) + '.' + ext;
+  var ref = storage.ref().child(nombreStorage);
+  var metadata = {};
+  if(tipo === 'imagen') metadata.contentType = file.type || 'image/jpeg';
+  else if(tipo === 'pdf') metadata.contentType = 'application/pdf';
+  else if(tipo === 'audio') metadata.contentType = file.type || 'audio/mpeg';
+
+  var snapshot = await ref.put(file, metadata);
+  var url = await snapshot.ref.getDownloadURL();
+  mostrarToast('✓ Archivo subido');
+  return { tipo: tipo, url: url, path: nombreStorage, nombre: file.name };
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Resolver variables {nombre} {distrito} etc. para cada destinatario
+// ════════════════════════════════════════════════════════════════════
+function resolverMensaje(plantilla, cliente){
+  return plantilla
+    .replace(/\{nombre\}/g, cliente.nombre || 'cliente')
+    .replace(/\{distrito\}/g, cliente.dist || '')
+    .replace(/\{producto\}/g, cliente.prod || '')
+    .replace(/\{monto\}/g, cliente.cobrar || '')
+    .replace(/\{precio_oferta\}/g, cliente.cobrar || '');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Filtrar destinatarios según selección
+// ════════════════════════════════════════════════════════════════════
+async function obtenerDestinatarios(){
+  var clientes = await cargarClientes();
+  var destinatarios = [];
+
+  if(filtroSel === 'todos'){
+    destinatarios = clientes.slice();
+  } else if(filtroSel === 'distrito'){
+    if(distritosSeleccionados.size === 0){
+      throw new Error('Selecciona al menos un distrito');
+    }
+    destinatarios = clientes.filter(function(c){
+      return c.dist && distritosSeleccionados.has(c.dist);
+    });
+  } else if(filtroSel === 'manual'){
+    var texto = document.getElementById('c-manual').value || '';
+    var nums = texto.split('\n').map(function(l){ return normalizarTel(l); }).filter(function(n){ return n.length >= 9; });
+    var unicos = Array.from(new Set(nums));
+    if(unicos.length === 0){
+      throw new Error('Pega al menos un celular válido (9 dígitos)');
+    }
+    // Para cada número, buscar si ya es cliente; si no, crear entrada genérica
+    unicos.forEach(function(num){
+      var cli = clientes.find(function(c){ return c.cel === num; });
+      if(cli){
+        destinatarios.push(cli);
+      } else {
+        destinatarios.push({ cel: num, nombre: 'Cliente', dist: '', prod: '', cobrar: '' });
+      }
+    });
+  }
+
+  // Filtrar duplicados y válidos
+  var vistos = {};
+  destinatarios = destinatarios.filter(function(c){
+    if(!c.cel || c.cel.length < 9) return false;
+    if(vistos[c.cel]) return false;
+    vistos[c.cel] = true;
+    return true;
+  });
+
+  return destinatarios;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Guardar borrador (sin disparar envío)
+// ════════════════════════════════════════════════════════════════════
+async function guardarBorrador(){
+  await guardarCampana(false);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Enviar ahora (guardar + disparar envío)
+// ════════════════════════════════════════════════════════════════════
+async function enviarAhora(){
+  await guardarCampana(true);
+}
+
+async function guardarCampana(disparar){
+  var nombre = document.getElementById('c-nombre').value.trim();
+  var mensaje = document.getElementById('c-mensaje').value.trim();
+  var velocidad = parseInt(document.getElementById('c-velocidad').value, 10) || 8;
+
+  if(!nombre){ mostrarToast('⚠️ Falta nombre de la campaña'); return; }
+  if(!mensaje){ mostrarToast('⚠️ Falta el mensaje'); return; }
+
+  // Si disparamos, validar destinatarios antes de guardar
+  var destinatarios = [];
+  if(disparar){
+    try{
+      mostrarToast('Cargando destinatarios... ⏳');
+      destinatarios = await obtenerDestinatarios();
+      if(destinatarios.length === 0){
+        mostrarToast('⚠️ No hay destinatarios para el filtro elegido');
+        return;
+      }
+      if(destinatarios.length > 200){
+        if(!confirm('Vas a enviar a ' + destinatarios.length + ' clientes. Con Baileys esto es riesgoso. ¿Continuar?')){
+          return;
+        }
+      }
+    }catch(e){
+      mostrarToast('⚠️ ' + e.message);
+      return;
+    }
+  }
+
+  // Subir multimedia si hay
+  var multimedia = null;
+  if(tipoMediaSel !== 'texto' && archivoMediaSel){
+    try{
+      multimedia = await subirMultimedia(archivoMediaSel, tipoMediaSel);
+    }catch(e){
+      mostrarToast('⚠️ Error subiendo archivo: ' + e.message);
+      return;
+    }
+  }
+
+  // Construir doc de campaña
+  var campanaDoc = {
+    nombre: nombre,
+    mensaje: mensaje,
+    multimedia: multimedia,
+    filtro: {
+      tipo: filtroSel,
+      distritos: filtroSel === 'distrito' ? Array.from(distritosSeleccionados) : [],
+      manuales: filtroSel === 'manual' ? destinatarios.map(function(d){ return d.cel; }) : []
+    },
+    velocidad: velocidad,
+    estado: disparar ? 'enviando' : 'borrador',
+    creada_en: new Date().toISOString(),
+    uid_rudy: UID_BOT,
+    stats: { total: destinatarios.length, enviados: 0, fallidos: 0, pendientes: destinatarios.length }
+  };
+
+  mostrarToast(disparar ? 'Creando campaña... ⏳' : 'Guardando borrador... ⏳');
+
+  try{
+    var docRef = await db.collection('campanas').add(campanaDoc);
+
+    if(disparar){
+      mostrarToast('Encolando ' + destinatarios.length + ' envíos... ⏳');
+      // Escribir cada destinatario en /campanas/{id}/destinatarios/{cel}
+      // Y un doc en /cola_envio para que el bot lo procese
+      var batch = db.batch();
+      destinatarios.forEach(function(d){
+        // Subdoc de destinatario
+        var destRef = docRef.collection('destinatarios').doc(d.cel);
+        batch.set(destRef, {
+          nombre: d.nombre,
+          celular: d.cel,
+          mensaje_personalizado: resolverMensaje(mensaje, d),
+          estado: 'pendiente',
+          intentos: 0,
+          ultimo_intento: null,
+          error: null
+        });
+        // Doc en cola_envio (lo que el bot lee)
+        var colaRef = db.collection('cola_envio').doc(d.cel + '_' + docRef.id);
+        batch.set(colaRef, {
+          campaign_id: docRef.id,
+          celular: d.cel,
+          nombre: d.nombre,
+          mensaje: resolverMensaje(mensaje, d),
+          multimedia: multimedia,
+          velocidad: velocidad,
+          status: 'pendiente',
+          creada_en: new Date().toISOString(),
+          intentos: 0
+        });
+      });
+      await batch.commit();
+      mostrarToast('🚀 Campaña enviada! ' + destinatarios.length + ' mensajes encolados');
+    } else {
+      mostrarToast('✓ Borrador guardado');
+    }
+    cerrarEditor();
+  }catch(e){
+    console.error('guardarCampana:', e);
+    mostrarToast('⚠️ Error guardando: ' + e.message);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Detalle de campaña
+// ════════════════════════════════════════════════════════════════════
+function abrirDetalle(id){
+  var c = CAMPAÑAS.find(function(x){ return x.id === id; });
+  if(!c) return;
+
+  document.getElementById('det-titulo').textContent = c.nombre || 'Sin nombre';
+  document.getElementById('det-fecha').textContent = 'Creada el ' + (c.creada_en || '').replace('T',' ').slice(0,16);
+  document.getElementById('det-mensaje').textContent = c.mensaje || '';
+
+  // Stats iniciales
+  var stats = c.stats || {total:0, enviados:0, fallidos:0, pendientes:0};
+  actualizarStatsDetalle(stats);
+
+  // Botón pausar solo si está enviando
+  document.getElementById('btn-pausar').style.display = c.estado === 'enviando' ? 'block' : 'none';
+  document.getElementById('btn-pausar').dataset.id = id;
+
+  // Si está enviando, escuchar destinatarios en tiempo real para actualizar stats
+  if(unsubscribeDetalle){ unsubscribeDetalle(); unsubscribeDetalle = null; }
+  if(c.estado === 'enviando'){
+    unsubscribeDetalle = db.collection('campanas').doc(id).collection('destinatarios')
+      .onSnapshot(function(snap){
+        var total = snap.size;
+        var enviados = 0, fallidos = 0, pendientes = 0;
+        snap.forEach(function(d){
+          var e = d.data().estado;
+          if(e === 'enviado') enviados++;
+          else if(e === 'fallido') fallidos++;
+          else if(e === 'pendiente') pendientes++;
+        });
+        actualizarStatsDetalle({total:total, enviados:enviados, fallidos:fallidos, pendientes:pendientes});
+      });
+  }
+
+  // Guardar id actual para pausar/duplicar
+  document.getElementById('modal-detalle').dataset.id = id;
+  document.getElementById('modal-detalle').classList.add('show');
+}
+
+function actualizarStatsDetalle(stats){
+  document.getElementById('det-total').textContent = stats.total;
+  document.getElementById('det-enviados').textContent = stats.enviados;
+  document.getElementById('det-fallidos').textContent = stats.fallidos;
+  var pct = stats.total > 0 ? Math.round((stats.enviados / stats.total) * 100) : 0;
+  document.getElementById('det-prog').style.width = pct + '%';
+  document.getElementById('det-prog-txt').textContent = stats.enviados + ' / ' + stats.total;
+  document.getElementById('det-prog-pct').textContent = pct + '%';
+}
+
+function cerrarDetalle(){
+  document.getElementById('modal-detalle').classList.remove('show');
+  if(unsubscribeDetalle){ unsubscribeDetalle(); unsubscribeDetalle = null; }
+}
+
+async function pausarCampana(){
+  var id = document.getElementById('modal-detalle').dataset.id;
+  if(!id) return;
+  if(!confirm('¿Pausar campaña? Los mensajes ya en cola seguirán enviándose pero no se agregarán nuevos.')) return;
+  try{
+    // Cambiar estado a pausada
+    await db.collection('campanas').doc(id).update({ estado: 'pausada' });
+    // Marcar como no pendientes los destinatarios que aún no se procesaron
+    // (lo hacemos en una transacción simple)
+    var snap = await db.collection('campanas').doc(id).collection('destinatarios').where('estado','==','pendiente').get();
+    var batch = db.batch();
+    snap.forEach(function(d){
+      batch.update(d.ref, { estado: 'pausado' });
+    });
+    // También borrar de cola_envio los pendientes de esta campaña
+    var snap2 = await db.collection('cola_envio').where('campaign_id','==',id).where('status','==','pendiente').get();
+    snap2.forEach(function(d){
+      batch.delete(d.ref);
+    });
+    await batch.commit();
+    mostrarToast('⏸️ Campaña pausada');
+    cerrarDetalle();
+  }catch(e){
+    mostrarToast('⚠️ Error pausando: ' + e.message);
+  }
+}
+
+async function duplicarCampana(){
+  var id = document.getElementById('modal-detalle').dataset.id;
+  if(!id) return;
+  var c = CAMPAÑAS.find(function(x){ return x.id === id; });
+  if(!c) return;
+  try{
+    var nuevoDoc = {
+      nombre: (c.nombre || '') + ' (copia)',
+      mensaje: c.mensaje || '',
+      multimedia: c.multimedia || null,
+      filtro: c.filtro || { tipo:'todos' },
+      velocidad: c.velocidad || 8,
+      estado: 'borrador',
+      creada_en: new Date().toISOString(),
+      uid_rudy: UID_BOT,
+      stats: { total:0, enviados:0, fallidos:0, pendientes:0 }
+    };
+    await db.collection('campanas').add(nuevoDoc);
+    mostrarToast('📋 Campaña duplicada como borrador');
+    cerrarDetalle();
+  }catch(e){
+    mostrarToast('⚠️ Error duplicando: ' + e.message);
+  }
+}
+
+// Cerrar modal al tocar backdrop
+document.querySelectorAll('.modal-back').forEach(function(m){
+  m.addEventListener('click', function(e){
+    if(e.target === m) m.classList.remove('show');
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════
+// Iniciar
+// ════════════════════════════════════════════════════════════════════
+iniciarListenerCampanas();
+// Pre-cargar clientes en background
+cargarClientes().then(function(clientes){
+  console.log('Clientes cargados:', clientes.length);
+}).catch(function(e){
+  console.error('No se pudieron cargar clientes aún:', e.message);
+});
+</script>
+</body>
+</html>
