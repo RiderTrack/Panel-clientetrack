@@ -979,37 +979,63 @@ async function guardarCampana(disparar){
 
     if(disparar){
       mostrarToast('Encolando ' + destinatarios.length + ' envíos... ⏳');
-      // Escribir cada destinatario en /campanas/{id}/destinatarios/{cel}
-      // Y un doc en /cola_envio para que el bot lo procese
-      var batch = db.batch();
-      destinatarios.forEach(function(d){
-        // Subdoc de destinatario
-        var destRef = docRef.collection('destinatarios').doc(d.cel);
-        batch.set(destRef, {
-          nombre: d.nombre,
-          celular: d.cel,
-          mensaje_personalizado: resolverMensaje(mensaje, d),
-          estado: 'pendiente',
-          intentos: 0,
-          ultimo_intento: null,
-          error: null
+      // Escribir destinatarios UNO POR UNO (no en batch) — así si uno falla,
+      // los demás se guardan igual. El "client is offline" del SDK a veces
+      // rompe batch.commit() silenciosamente.
+      var encolados = 0;
+      var fallidos = 0;
+      for(var i = 0; i < destinatarios.length; i++){
+        var d = destinatarios[i];
+        try {
+          // 1. Subdoc de destinatario
+          await docRef.collection('destinatarios').doc(d.cel).set({
+            nombre: d.nombre,
+            celular: d.cel,
+            mensaje_personalizado: resolverMensaje(mensaje, d),
+            estado: 'pendiente',
+            intentos: 0,
+            ultimo_intento: null,
+            error: null
+          });
+          // 2. Doc en cola_envio (lo que el bot lee)
+          await db.collection('cola_envio').doc(d.cel + '_' + docRef.id).set({
+            campaign_id: docRef.id,
+            celular: d.cel,
+            nombre: d.nombre,
+            mensaje: resolverMensaje(mensaje, d),
+            multimedia: multimedia,
+            velocidad: velocidad,
+            status: 'pendiente',
+            creada_en: new Date().toISOString(),
+            intentos: 0
+          });
+          encolados++;
+          if(destinatarios.length > 1){
+            mostrarToast('Encolando... ' + (i+1) + '/' + destinatarios.length);
+          }
+        } catch(eWrite){
+          console.error('Error escribiendo destinatario', d.cel, ':', eWrite.message);
+          fallidos++;
+        }
+      }
+
+      // Actualizar stats de la campaña con lo que realmente se encoló
+      try {
+        await db.collection('campanas').doc(docRef.id).update({
+          stats: {
+            total: encolados,
+            enviados: 0,
+            fallidos: 0,
+            pendientes: encolados
+          }
         });
-        // Doc en cola_envio (lo que el bot lee)
-        var colaRef = db.collection('cola_envio').doc(d.cel + '_' + docRef.id);
-        batch.set(colaRef, {
-          campaign_id: docRef.id,
-          celular: d.cel,
-          nombre: d.nombre,
-          mensaje: resolverMensaje(mensaje, d),
-          multimedia: multimedia,
-          velocidad: velocidad,
-          status: 'pendiente',
-          creada_en: new Date().toISOString(),
-          intentos: 0
-        });
-      });
-      await batch.commit();
-      mostrarToast('🚀 Campaña enviada! ' + destinatarios.length + ' mensajes encolados');
+      } catch(eStats){ console.error('No se actualizaron stats:', eStats.message); }
+
+      if(encolados > 0){
+        mostrarToast('🚀 Campaña enviada! ' + encolados + ' encolados' + (fallidos > 0 ? ', ' + fallidos + ' fallidos' : ''));
+      } else {
+        mostrarToast('⚠️ No se pudo encolar ningún mensaje. Revisa tu conexión.');
+      }
     } else {
       mostrarToast('✓ Borrador guardado');
     }
