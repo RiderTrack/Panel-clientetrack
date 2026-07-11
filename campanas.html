@@ -289,6 +289,11 @@
     <i class="fa-solid fa-bullhorn"></i>
     <b>Aún no has creado campañas</b>
     <small>Toca <b>"Nueva"</b> para enviar tu primer mensaje masivo a tus clientes.</small>
+    <div style="margin-top:20px;">
+      <button onclick="testConexion()" style="background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:10px 18px; font-size:0.78rem; color:var(--muted); cursor:pointer; font-family:inherit;">
+        🔧 Diagnosticar conexión Firebase
+      </button>
+    </div>
   </div>
 </main>
 
@@ -522,10 +527,12 @@ function iniciarListenerCampanas(){
 // ════════════════════════════════════════════════════════════════════
 async function cargarClientes(){
   if(CACHE_CLIENTES) return CACHE_CLIENTES;
+  var clientes = [];
+  var pasoActual = 'ruta_activa';
   try{
-    // 1. Ruta activa (clientes del día)
+    // 1. Ruta activa (clientes del día) — con source: 'server' para forzar conexión
+    mostrarToast('Leyendo clientes (1/2)... ⏳');
     var snap1 = await db.collection('ruta_activa').doc(UID_BOT).get();
-    var clientes = [];
     if(snap1.exists){
       var data = snap1.data();
       (data.clientes || []).forEach(function(c){
@@ -540,6 +547,8 @@ async function cargarClientes(){
       });
     }
     // 2. Clientes registrados (BD histórica)
+    pasoActual = 'clientes_registrados';
+    mostrarToast('Leyendo clientes (2/2)... ⏳');
     var snap2 = await db.collection('clientes_registrados').get();
     snap2.forEach(function(d){
       var c = d.data();
@@ -556,10 +565,15 @@ async function cargarClientes(){
       }
     });
     CACHE_CLIENTES = clientes;
+    mostrarToast('✓ ' + clientes.length + ' clientes cargados');
     return clientes;
   }catch(e){
-    console.error('cargarClientes:', e);
-    throw e;
+    console.error('cargarClientes error en', pasoActual, ':', e);
+    // Si es "offline", dar un mensaje más útil
+    if(e.message && e.message.indexOf('offline') >= 0){
+      throw new Error('Sin conexión a Firebase al leer ' + pasoActual + '. Revisa tu internet e inténtalo de nuevo.');
+    }
+    throw new Error('Error leyendo ' + pasoActual + ': ' + e.message);
   }
 }
 
@@ -1113,6 +1127,49 @@ cargarClientes().then(function(clientes){
 }).catch(function(e){
   console.error('No se pudieron cargar clientes aún:', e.message);
 });
+
+// ════════════════════════════════════════════════════════════════════
+// Test de conexión — diagnóstico
+// ════════════════════════════════════════════════════════════════════
+async function testConexion(){
+  mostrarToast('🔧 Diagnóstico iniciado... ⏳');
+  var resultados = [];
+
+  // 1. Internet general
+  resultados.push('🌐 Internet: ' + (navigator.onLine ? 'OK' : 'OFFLINE'));
+
+  // 2. Firebase inicializado
+  resultados.push('🔥 Firebase app: ' + (firebase.app() ? 'OK' : 'NO INICIALIZADA'));
+
+  // 3. Test ruta_activa
+  try{
+    var snap1 = await db.collection('ruta_activa').doc(UID_BOT).get();
+    resultados.push('📋 ruta_activa: ' + (snap1.exists ? 'OK (' + ((snap1.data().clientes || []).length) + ' clientes)' : 'doc NO existe'));
+  }catch(e){
+    resultados.push('📋 ruta_activa: ❌ ' + e.message);
+  }
+
+  // 4. Test clientes_registrados
+  try{
+    var snap2 = await db.collection('clientes_registrados').get();
+    resultados.push('👥 clientes_registrados: ' + (snap2.empty ? 'vacía (sin docs)' : snap2.size + ' docs'));
+  }catch(e){
+    resultados.push('👥 clientes_registrados: ❌ ' + e.message);
+  }
+
+  // 5. Test campanas (write)
+  try{
+    var snap3 = await db.collection('campanas').where('uid_rudy','==',UID_BOT).get();
+    resultados.push('📣 campanas: ' + (snap3.empty ? 'vacía (sin docs)' : snap3.size + ' docs'));
+  }catch(e){
+    resultados.push('📣 campanas: ❌ ' + e.message);
+  }
+
+  // Mostrar resultado en una alerta grande
+  setTimeout(function(){
+    alert('DIAGNÓSTICO FIREBASE:\n\n' + resultados.join('\n'));
+  }, 500);
+}
 </script>
 </body>
 </html>
