@@ -858,9 +858,26 @@ function resolverMensaje(plantilla, cliente){
 // Filtrar destinatarios según selección
 // ════════════════════════════════════════════════════════════════════
 async function obtenerDestinatarios(){
-  var clientes = await cargarClientes();
   var destinatarios = [];
 
+  // ===== LISTA MANUAL =====
+  // No necesita cargar clientes de Firestore — solo los números pegados
+  if(filtroSel === 'manual'){
+    var texto = document.getElementById('c-manual').value || '';
+    var nums = texto.split('\n').map(function(l){ return normalizarTel(l); }).filter(function(n){ return n.length >= 9; });
+    var unicos = Array.from(new Set(nums));
+    if(unicos.length === 0){
+      throw new Error('Pega al menos un celular válido (9 dígitos)');
+    }
+    unicos.forEach(function(num){
+      destinatarios.push({ cel: num, nombre: 'Cliente', dist: '', prod: '', cobrar: '' });
+    });
+    return destinatarios;
+  }
+
+  // ===== TODOS o POR DISTRITO =====
+  // Estos SÍ necesitan cargar clientes de Firestore
+  var clientes = await cargarClientes();
   if(filtroSel === 'todos'){
     destinatarios = clientes.slice();
   } else if(filtroSel === 'distrito'){
@@ -869,22 +886,6 @@ async function obtenerDestinatarios(){
     }
     destinatarios = clientes.filter(function(c){
       return c.dist && distritosSeleccionados.has(c.dist);
-    });
-  } else if(filtroSel === 'manual'){
-    var texto = document.getElementById('c-manual').value || '';
-    var nums = texto.split('\n').map(function(l){ return normalizarTel(l); }).filter(function(n){ return n.length >= 9; });
-    var unicos = Array.from(new Set(nums));
-    if(unicos.length === 0){
-      throw new Error('Pega al menos un celular válido (9 dígitos)');
-    }
-    // Para cada número, buscar si ya es cliente; si no, crear entrada genérica
-    unicos.forEach(function(num){
-      var cli = clientes.find(function(c){ return c.cel === num; });
-      if(cli){
-        destinatarios.push(cli);
-      } else {
-        destinatarios.push({ cel: num, nombre: 'Cliente', dist: '', prod: '', cobrar: '' });
-      }
     });
   }
 
