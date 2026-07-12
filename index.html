@@ -1421,7 +1421,7 @@
 
         function escucharEmpresa(){
           try{
-            db.collection('sistema').doc('empresa').onSnapshot(function(doc){
+            dbDash.collection('sistema').doc('empresa').onSnapshot(function(doc){
               if(doc.exists){
                 var d = doc.data() || {};
                 EMPRESA = {
@@ -1474,7 +1474,7 @@
         function subirLogo(input){
           var file = input.files && input.files[0];
           if(!file) return;
-          if(file.size > 5 * 1024 * 1024){ alert('Imagen muy grande (máx 5MB)'); return; }
+          if(file.size > 5 * 1024 * 1024){ toastDash('⚠️ Imagen muy grande (máx 5MB)'); return; }
 
           var reader = new FileReader();
           reader.onload = function(e){
@@ -1500,6 +1500,7 @@
         }
 
         function guardarEmpresa(){
+          var btn = document.querySelector('.emp-save');
           var datos = {
             nombre:   (document.getElementById('empIn').value || '').trim(),
             slogan:   (document.getElementById('empIs').value || '').trim(),
@@ -1508,15 +1509,24 @@
             logo:     EMPRESA.logo || '',
             actualizado: new Date().toISOString()
           };
-          if(!datos.nombre){ alert('Ponle un nombre a tu empresa'); return; }
+          if(!datos.nombre){ toastDash('⚠️ Ponle un nombre a tu empresa'); return; }
 
-          db.collection('sistema').doc('empresa').set(datos, {merge:true})
+          // Feedback visual: sin esto, si algo falla parece que "se cuelga"
+          if(btn){ btn.textContent = 'Guardando...'; btn.disabled = true; }
+
+          dbDash.collection('sistema').doc('empresa').set(datos, {merge:true})
             .then(function(){
               EMPRESA = datos;
               pintarEmpresa();
+              if(btn){ btn.textContent = 'Guardar'; btn.disabled = false; }
               cerrarConfigEmpresa();
+              toastDash('✅ ' + datos.nombre + ' guardada');
             })
-            .catch(function(e){ alert('Error guardando: ' + e.message); });
+            .catch(function(e){
+              console.error('guardarEmpresa:', e);
+              if(btn){ btn.textContent = 'Guardar'; btn.disabled = false; }
+              toastDash('⚠️ No se pudo guardar: ' + e.message);
+            });
         }
 
         renderNav();
