@@ -151,6 +151,86 @@
             box-shadow: var(--shadow-md);
         }
 
+        /* ═══ WHITE-LABEL: tarjeta de la empresa del cliente ═══ */
+        .empresa-card {
+            display:flex; align-items:center; gap:11px;
+            margin:0 14px 18px; padding:11px 12px;
+            background:rgba(255,255,255,0.05);
+            border:1px solid rgba(255,255,255,0.1);
+            border-radius:14px; cursor:pointer;
+            transition:all 0.2s; position:relative;
+        }
+        .empresa-card:hover {
+            background:rgba(255,255,255,0.09);
+            border-color:rgba(255,255,255,0.2);
+        }
+        .empresa-logo {
+            width:38px; height:38px; border-radius:10px;
+            background:#fff; flex-shrink:0;
+            display:flex; align-items:center; justify-content:center;
+            overflow:hidden; color:#5B21B6; font-size:0.95rem;
+        }
+        .empresa-logo img {
+            width:100%; height:100%; object-fit:contain; padding:3px;
+        }
+        .empresa-info { flex:1; min-width:0; }
+        .empresa-info h5 {
+            margin:0; font-size:0.85rem; font-weight:700;
+            color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+        }
+        .empresa-info p {
+            margin:1px 0 0; font-size:0.66rem;
+            color:rgba(255,255,255,0.55);
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+        }
+        .empresa-edit {
+            font-size:0.62rem; color:rgba(255,255,255,0.35); flex-shrink:0;
+        }
+
+        /* ═══ Modal de configuración de empresa ═══ */
+        .emp-modal {
+            position:fixed; inset:0; background:rgba(10,12,20,0.75);
+            backdrop-filter:blur(4px); z-index:9999;
+            display:none; align-items:center; justify-content:center; padding:20px;
+        }
+        .emp-modal.show { display:flex; }
+        .emp-box {
+            background:#fff; border-radius:22px; padding:24px;
+            width:100%; max-width:420px; max-height:88vh; overflow-y:auto;
+        }
+        .emp-box h3 { margin:0 0 4px; font-size:1.15rem; }
+        .emp-box .emp-sub { font-size:0.76rem; color:#7A7D96; margin-bottom:20px; line-height:1.45; }
+        .emp-field { margin-bottom:14px; }
+        .emp-field label {
+            display:block; font-size:0.7rem; font-weight:700; color:#7A7D96;
+            text-transform:uppercase; letter-spacing:0.4px; margin-bottom:6px;
+        }
+        .emp-field input, .emp-field textarea {
+            width:100%; padding:11px 13px; border:1px solid #E6E8F0;
+            border-radius:11px; font-family:inherit; font-size:0.88rem;
+            outline:none; background:#F8F9FC; color:#12131A;
+        }
+        .emp-field input:focus, .emp-field textarea:focus { border-color:#5B21B6; background:#fff; }
+        .emp-logo-drop {
+            border:2px dashed #E6E8F0; border-radius:14px; padding:18px;
+            text-align:center; cursor:pointer; transition:all 0.2s;
+        }
+        .emp-logo-drop:hover { border-color:#5B21B6; background:#FAF8FF; }
+        .emp-logo-prev {
+            width:64px; height:64px; margin:0 auto 8px;
+            border-radius:12px; background:#F1F3F9;
+            display:flex; align-items:center; justify-content:center;
+            overflow:hidden; color:#B4BAC9; font-size:1.4rem;
+        }
+        .emp-logo-prev img { width:100%; height:100%; object-fit:contain; padding:4px; }
+        .emp-btns { display:flex; gap:9px; margin-top:20px; }
+        .emp-btns button {
+            flex:1; padding:13px; border:none; border-radius:13px;
+            font-family:inherit; font-weight:700; font-size:0.88rem; cursor:pointer;
+        }
+        .emp-cancel { background:#F1F3F9; color:#7A7D96; }
+        .emp-save { background:linear-gradient(135deg,#5B21B6,#7C3AED); color:#fff; }
+
         .user-profile {
             margin-top: auto;
             padding: 12px;
@@ -728,7 +808,25 @@
             <div class="logo-icon"><i class="fa-solid fa-route"></i></div>
             TrackVerse
         </div>
-        
+
+        <!-- ═══════════════════════════════════════════════════════════
+             WHITE-LABEL: la empresa del cliente.
+             TrackVerse (arriba) = la marca que da el servicio.
+             Esto (abajo) = el negocio que lo usa. Hoy MATE; mañana,
+             la panadería de otro cliente. Todo sale de Firestore
+             (sistema/empresa), NADA hardcodeado.
+             ═══════════════════════════════════════════════════════════ -->
+        <div class="empresa-card" onclick="abrirConfigEmpresa()" title="Configurar empresa">
+            <div class="empresa-logo" id="empLogo">
+                <i class="fa-solid fa-building"></i>
+            </div>
+            <div class="empresa-info">
+                <h5 id="empNombre">Tu Empresa</h5>
+                <p id="empSlogan">Toca para configurar</p>
+            </div>
+            <i class="fa-solid fa-pen empresa-edit"></i>
+        </div>
+
         <ul class="nav-menu" id="main-nav"></ul>
 
         <div class="user-profile">
@@ -741,6 +839,51 @@
     </nav>
 
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="cerrarSidebar()"></div>
+
+    <!-- ═══ Modal: Configuración de la empresa (white-label) ═══ -->
+    <div class="emp-modal" id="empModal">
+      <div class="emp-box">
+        <h3>🏢 Tu empresa</h3>
+        <div class="emp-sub">
+          Estos datos se muestran en el panel y los usa el bot en los mensajes.
+          <b>TrackVerse</b> es la plataforma; esto es <b>tu negocio</b>.
+        </div>
+
+        <div class="emp-field">
+          <label>Logo</label>
+          <div class="emp-logo-drop" onclick="document.getElementById('empFile').click()">
+            <div class="emp-logo-prev" id="empPrev"><i class="fa-solid fa-image"></i></div>
+            <div style="font-size:0.75rem;color:#7A7D96;">Toca para subir · PNG o JPG</div>
+          </div>
+          <input type="file" id="empFile" accept="image/*" style="display:none;" onchange="subirLogo(this)">
+        </div>
+
+        <div class="emp-field">
+          <label>Nombre de la empresa</label>
+          <input type="text" id="empIn" placeholder="Ej: MATE" maxlength="30">
+        </div>
+
+        <div class="emp-field">
+          <label>Slogan / rubro</label>
+          <input type="text" id="empIs" placeholder="Ej: Ortopedia y bienestar" maxlength="50">
+        </div>
+
+        <div class="emp-field">
+          <label>Teléfono de contacto</label>
+          <input type="text" id="empIt" placeholder="Ej: 956203893" maxlength="20">
+        </div>
+
+        <div class="emp-field">
+          <label>Web / Instagram (opcional)</label>
+          <input type="text" id="empIw" placeholder="Ej: tiendasmate.com" maxlength="60">
+        </div>
+
+        <div class="emp-btns">
+          <button class="emp-cancel" onclick="cerrarConfigEmpresa()">Cancelar</button>
+          <button class="emp-save" onclick="guardarEmpresa()">Guardar</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Almacenamiento: detalle -->
     <div class="drop" id="dropAlmacen">
@@ -1261,7 +1404,123 @@
         }
 
         // ===== Arranque =====
+        // ═══════════════════════════════════════════════════════════
+        // WHITE-LABEL — datos de la empresa del cliente
+        //
+        // Vive en Firestore: sistema/empresa. NADA hardcodeado.
+        // Hoy dice MATE; mañana un cliente pone su panadería y el
+        // mismo código muestra lo suyo. Esto es el prototipo del
+        // multi-tenant: cuando llegue uid_owner, encaja solo.
+        //
+        // El logo va como base64 REDIMENSIONADO (128px, ~10-20 KB).
+        // ¿Por qué no Storage? Porque para un logo chico no vale la
+        // pena: sin reglas que configurar, sin CORS, sin URLs que
+        // expiren. Firestore aguanta 1MB por doc; esto usa el 2%.
+        // ═══════════════════════════════════════════════════════════
+        var EMPRESA = { nombre:'', slogan:'', telefono:'', web:'', logo:'' };
+
+        function escucharEmpresa(){
+          try{
+            db.collection('sistema').doc('empresa').onSnapshot(function(doc){
+              if(doc.exists){
+                var d = doc.data() || {};
+                EMPRESA = {
+                  nombre:   d.nombre   || '',
+                  slogan:   d.slogan   || '',
+                  telefono: d.telefono || '',
+                  web:      d.web      || '',
+                  logo:     d.logo     || ''
+                };
+              }
+              pintarEmpresa();
+            }, function(e){ console.warn('empresa:', e.message); });
+          }catch(e){ console.warn('escucharEmpresa:', e.message); }
+        }
+
+        function pintarEmpresa(){
+          var elN = document.getElementById('empNombre');
+          var elS = document.getElementById('empSlogan');
+          var elL = document.getElementById('empLogo');
+          if(!elN) return;
+
+          elN.textContent = EMPRESA.nombre || 'Tu Empresa';
+          elS.textContent = EMPRESA.slogan || (EMPRESA.nombre ? (EMPRESA.telefono || '') : 'Toca para configurar');
+
+          if(EMPRESA.logo){
+            elL.innerHTML = '<img src="' + EMPRESA.logo + '" alt="">';
+          } else {
+            elL.innerHTML = '<i class="fa-solid fa-building"></i>';
+          }
+        }
+
+        function abrirConfigEmpresa(){
+          document.getElementById('empIn').value = EMPRESA.nombre   || '';
+          document.getElementById('empIs').value = EMPRESA.slogan   || '';
+          document.getElementById('empIt').value = EMPRESA.telefono || '';
+          document.getElementById('empIw').value = EMPRESA.web      || '';
+          var prev = document.getElementById('empPrev');
+          prev.innerHTML = EMPRESA.logo
+            ? '<img src="' + EMPRESA.logo + '" alt="">'
+            : '<i class="fa-solid fa-image"></i>';
+          document.getElementById('empModal').classList.add('show');
+        }
+
+        function cerrarConfigEmpresa(){
+          document.getElementById('empModal').classList.remove('show');
+        }
+
+        // Redimensiona a 128px y comprime -> unos 10-20 KB.
+        // Sin esto, un logo de 2MB reventaría el límite de Firestore.
+        function subirLogo(input){
+          var file = input.files && input.files[0];
+          if(!file) return;
+          if(file.size > 5 * 1024 * 1024){ alert('Imagen muy grande (máx 5MB)'); return; }
+
+          var reader = new FileReader();
+          reader.onload = function(e){
+            var img = new Image();
+            img.onload = function(){
+              var canvas = document.createElement('canvas');
+              var MAX = 128;
+              var w = img.width, h = img.height;
+              if(w > h){ if(w > MAX){ h = h * MAX / w; w = MAX; } }
+              else     { if(h > MAX){ w = w * MAX / h; h = MAX; } }
+              canvas.width = w; canvas.height = h;
+              var ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, w, h);
+
+              // PNG conserva transparencia (importante para logos)
+              var base64 = canvas.toDataURL('image/png');
+              EMPRESA.logo = base64;
+              document.getElementById('empPrev').innerHTML = '<img src="' + base64 + '" alt="">';
+            };
+            img.src = e.target.result;
+          };
+          reader.readAsDataURL(file);
+        }
+
+        function guardarEmpresa(){
+          var datos = {
+            nombre:   (document.getElementById('empIn').value || '').trim(),
+            slogan:   (document.getElementById('empIs').value || '').trim(),
+            telefono: (document.getElementById('empIt').value || '').trim(),
+            web:      (document.getElementById('empIw').value || '').trim(),
+            logo:     EMPRESA.logo || '',
+            actualizado: new Date().toISOString()
+          };
+          if(!datos.nombre){ alert('Ponle un nombre a tu empresa'); return; }
+
+          db.collection('sistema').doc('empresa').set(datos, {merge:true})
+            .then(function(){
+              EMPRESA = datos;
+              pintarEmpresa();
+              cerrarConfigEmpresa();
+            })
+            .catch(function(e){ alert('Error guardando: ' + e.message); });
+        }
+
         renderNav();
+        escucharEmpresa();
         navegarA('dashboard');
 
 
