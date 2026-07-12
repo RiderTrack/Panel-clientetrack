@@ -283,6 +283,29 @@ body { background:var(--bg-color); color:var(--text-main); min-height:100vh; min
         <span class="chip-var" onclick="insertarVar('{hora}')">{hora}</span>
         <span class="chip-var" onclick="insertarVar('{fecha}')">{fecha}</span>
       </div>
+
+      <div style="font-size:0.62rem;color:var(--muted);margin:8px 0 5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;">
+        🛵 Ruta en vivo <span style="font-weight:400;text-transform:none;letter-spacing:0;">— se calculan solos desde tu ruta activa</span>
+      </div>
+      <div class="chips-bar" id="chipsBarRuta">
+        <span class="chip-var" onclick="insertarVar('{mi_posicion}')" style="background:rgba(16,163,74,0.1);color:#16A34A;">{mi_posicion}</span>
+        <span class="chip-var" onclick="insertarVar('{total_ruta}')" style="background:rgba(16,163,74,0.1);color:#16A34A;">{total_ruta}</span>
+        <span class="chip-var" onclick="insertarVar('{faltan_antes}')" style="background:rgba(16,163,74,0.1);color:#16A34A;">{faltan_antes}</span>
+        <span class="chip-var" onclick="insertarVar('{entregados_hoy}')" style="background:rgba(16,163,74,0.1);color:#16A34A;">{entregados_hoy}</span>
+        <span class="chip-var" onclick="insertarVar('{distrito_actual}')" style="background:rgba(16,163,74,0.1);color:#16A34A;">{distrito_actual}</span>
+        <span class="chip-var" onclick="insertarVar('{eta_aprox}')" style="background:rgba(16,163,74,0.1);color:#16A34A;">{eta_aprox}</span>
+        <span class="chip-var" onclick="insertarVar('{ruta_lista}')" style="background:rgba(16,163,74,0.1);color:#16A34A;">{ruta_lista}</span>
+      </div>
+
+      <div style="font-size:0.62rem;color:var(--muted);margin:8px 0 5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;">
+        🎭 Bloques opcionales <span style="font-weight:400;text-transform:none;letter-spacing:0;">— se ocultan solos si no hay dato</span>
+      </div>
+      <div class="chips-bar" id="chipsBarBloques">
+        <span class="chip-var" onclick="insertarVar('{sin_eta}\n\n{/sin_eta}')" style="background:rgba(139,92,246,0.1);color:#8B5CF6;">{sin_eta}</span>
+        <span class="chip-var" onclick="insertarVar('{sin_posicion}\n\n{/sin_posicion}')" style="background:rgba(139,92,246,0.1);color:#8B5CF6;">{sin_posicion}</span>
+        <span class="chip-var" onclick="insertarVar('{sin_ruta}\n\n{/sin_ruta}')" style="background:rgba(139,92,246,0.1);color:#8B5CF6;">{sin_ruta}</span>
+        <span class="chip-var" onclick="insertarVar('{sin_cobrar}\n\n{/sin_cobrar}')" style="background:rgba(139,92,246,0.1);color:#8B5CF6;">{sin_cobrar}</span>
+      </div>
       <textarea id="tplMensaje" placeholder="Escribe tu mensaje aquí... Usa *negrita*, _cursiva_ y las variables de arriba." oninput="actualizarPreview()"></textarea>
     </div>
 
@@ -540,9 +563,40 @@ function insertarVar(v){
   actualizarPreview();
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Datos de ejemplo para la vista previa de los tags de RUTA EN VIVO.
+// Simula: ruta de 19, Rudy va por el #14, el cliente es el #17.
+// ═══════════════════════════════════════════════════════════════
+var datosRutaDemo = {
+  mi_posicion: '17',
+  total_ruta: '19',
+  faltan_antes: '3',
+  entregados_hoy: '13',
+  distrito_actual: 'Los Olivos',
+  eta_aprox: '4:35 p. m.',
+  ruta_lista: '1. San Isidro\n2. Magdalena del Mar\n3. Jesús María\n4. Jesús María\n5. Pueblo Libre\n6. Pueblo Libre\n7. Cercado de Lima\n8. San Miguel\n9. San Miguel\n10. La Perla\n11. Callao\n12. San Martín de Porres\n13. San Martín de Porres\n14. Los Olivos\n15. Los Olivos\n16. Independencia\n17. Comas ← 📍 *TÚ ESTÁS AQUÍ*\n18. Los Olivos\n19. Los Olivos'
+};
+
+// Procesa los bloques {sin_x}...{/sin_x} igual que aplicarTags() en el bot.
+// En la vista previa siempre hay datos, así que se muestran todos.
+function procesarBloquesPreview(t){
+  var bloques = ['sin_eta','sin_posicion','sin_ruta','sin_producto','sin_cobrar','sin_direccion','sin_motivo'];
+  bloques.forEach(function(b){
+    // Deja el contenido de adentro, quita solo las etiquetas
+    var re = new RegExp('\\{' + b + '\\}([\\s\\S]*?)\\{\\/' + b + '\\}', 'g');
+    t = t.replace(re, '$1');
+  });
+  return t;
+}
+
 function actualizarPreview(){
   var msg = document.getElementById('tplMensaje').value;
-  var preview = msg.replace(/\{nombre\}/g, datosPrueba.nombre)
+
+  // 1. Bloques condicionales primero
+  var preview = procesarBloquesPreview(msg);
+
+  // 2. Variables normales
+  preview = preview.replace(/\{nombre\}/g, datosPrueba.nombre)
     .replace(/\{producto\}/g, datosPrueba.producto)
     .replace(/\{monto\}/g, datosPrueba.monto)
     .replace(/\{cobrar\}/g, datosPrueba.cobrar)
@@ -552,6 +606,16 @@ function actualizarPreview(){
     .replace(/\{minutos_llegada\}/g, datosPrueba.minutos_llegada)
     .replace(/\{hora\}/g, datosPrueba.hora)
     .replace(/\{fecha\}/g, datosPrueba.fecha);
+
+  // 3. Variables de RUTA EN VIVO
+  preview = preview.replace(/\{mi_posicion\}/g, datosRutaDemo.mi_posicion)
+    .replace(/\{total_ruta\}/g, datosRutaDemo.total_ruta)
+    .replace(/\{faltan_antes\}/g, datosRutaDemo.faltan_antes)
+    .replace(/\{entregados_hoy\}/g, datosRutaDemo.entregados_hoy)
+    .replace(/\{distrito_actual\}/g, datosRutaDemo.distrito_actual)
+    .replace(/\{eta_aprox\}/g, datosRutaDemo.eta_aprox)
+    .replace(/\{ruta_lista\}/g, datosRutaDemo.ruta_lista);
+
   var html = formatearWhatsApp(preview);
   document.getElementById('previewContent').innerHTML = html || 'Escribe algo para ver la vista previa...';
 }
