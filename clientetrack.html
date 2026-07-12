@@ -489,6 +489,10 @@
                     <span class="chat-header-status"><span class="dot" style="width: 6px; height:6px;"></span> <span id="chatHeaderPhone">+51 ...</span></span>
                 </div>
                 <div class="chat-header-actions">
+                    <button class="action-icon-btn" id="btnSilenciarBot" onclick="toggleSilencioBot()" title="Silenciar bot para este cliente" style="position:relative;">
+                        <svg viewBox="0 0 24 24" id="iconBotOn"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>
+                        <svg viewBox="0 0 24 24" id="iconBotOff" style="display:none;"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>
+                    </button>
                     <button class="action-icon-btn action-location" onclick="enviarUbicacion()" title="Enviar ubicación">
                         <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
                     </button>
@@ -501,6 +505,16 @@
                 </div>
             </header>
 
+            <div id="bannerSilenciado" style="display:none; align-items:center; gap:10px; background:rgba(239,68,68,0.1); border-bottom:1px solid rgba(239,68,68,0.25); padding:10px 16px; flex-shrink:0;">
+                <span style="font-size:1.1rem;">🔇</span>
+                <div style="flex:1; min-width:0;">
+                    <div style="font-size:0.78rem; font-weight:700; color:#DC2626;">Bot silenciado</div>
+                    <div id="bannerSilenciadoTxt" style="font-size:0.68rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+                </div>
+                <button onclick="toggleSilencioBot()" style="background:#16A34A; color:#fff; border:none; border-radius:8px; padding:7px 12px; font-size:0.72rem; font-weight:700; font-family:inherit; cursor:pointer; flex-shrink:0;">
+                    ▶️ Reactivar
+                </button>
+            </div>
             <div class="chat-body scrollable" id="chatBody">
                 <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;color:var(--text-muted);">
                     <div style="font-size:40px;margin-bottom:8px;opacity:0.5;">💬</div>
@@ -562,6 +576,12 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const UID_BOT = 'K8wx9X5GGOfindI1RGtIIQN3UGr1';
 
+// ═══════════════════════════════════════════════════════════════
+// HANDOFF — control del silencio del bot por cliente
+// Espeja la coleccion 'bot_silenciado' que usa handoff.js en el bot.
+// ═══════════════════════════════════════════════════════════════
+var SILENCIADOS = {};   // { '51999888777': {motivo, detalle, silenciado_en} }
+
 // ===== ESTADO =====
 var conversaciones = {};
 var telefonoActual = null;
@@ -572,6 +592,120 @@ var selectedChats = new Set();
 // ===== NAVIGATION (original) =====
 const mainView = document.getElementById('mainView');
 const chatView = document.getElementById('chatView');
+
+// ═══════════════════════════════════════════════════════════════
+// HANDOFF — Silenciar / reactivar el bot para un cliente
+//
+// Por qué existe: el 11/07 una clienta (Mirtha, tercera edad) reclamaba
+// por calidad y el bot le respondió 10 mensajes automáticos sin entender
+// nada, mientras Rudy manejaba. El bot no falló por no responder: falló
+// por no callarse. Esto le da a Rudy el control.
+// ═══════════════════════════════════════════════════════════════
+
+function iniciarListenerSilenciados(){
+  try{
+    db.collection('bot_silenciado').onSnapshot(function(snap){
+      var nuevo = {};
+      snap.forEach(function(doc){
+        var d = doc.data() || {};
+        if(d.activo !== false) nuevo[doc.id] = d;
+      });
+      SILENCIADOS = nuevo;
+      actualizarBotonSilencio();
+      renderLista();
+    }, function(e){ console.warn('listener silenciados:', e.message); });
+  }catch(e){ console.warn('iniciarListenerSilenciados:', e.message); }
+}
+
+// Busca el numero en cualquiera de sus variantes (con/sin 51)
+function claveSilenciado(telefono){
+  var t = String(telefono || '').replace(/\D/g,'');
+  if(!t) return null;
+  var sin51 = t.replace(/^51/, '');
+  var variantes = [t, sin51, '51' + sin51];
+  for(var i = 0; i < variantes.length; i++){
+    if(SILENCIADOS[variantes[i]]) return variantes[i];
+  }
+  return null;
+}
+
+function estaSilenciado(telefono){
+  return claveSilenciado(telefono) !== null;
+}
+
+function actualizarBotonSilencio(){
+  var btn = document.getElementById('btnSilenciarBot');
+  var on  = document.getElementById('iconBotOn');
+  var off = document.getElementById('iconBotOff');
+  var banner = document.getElementById('bannerSilenciado');
+  if(!btn || !telefonoActual) return;
+
+  var silenciado = estaSilenciado(telefonoActual);
+
+  if(silenciado){
+    btn.style.background = 'rgba(239,68,68,0.15)';
+    btn.style.color = '#DC2626';
+    btn.title = 'Bot SILENCIADO — toca para reactivar';
+    if(on) on.style.display = 'none';
+    if(off) off.style.display = 'block';
+    if(banner){
+      var k = claveSilenciado(telefonoActual);
+      var info = SILENCIADOS[k] || {};
+      var motivo = info.motivo === 'enojo_detectado'
+        ? '😡 Cliente molesto detectado'
+        : '🔇 Silenciado manualmente';
+      var det = info.detalle ? ' · ' + String(info.detalle).slice(0,50) : '';
+      document.getElementById('bannerSilenciadoTxt').textContent = motivo + det;
+      banner.style.display = 'flex';
+    }
+  } else {
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.title = 'Silenciar bot para este cliente';
+    if(on) on.style.display = 'block';
+    if(off) off.style.display = 'none';
+    if(banner) banner.style.display = 'none';
+  }
+}
+
+async function toggleSilencioBot(){
+  if(!telefonoActual){ mostrarAviso('Abre un chat primero'); return; }
+
+  var tel = String(telefonoActual).replace(/\D/g,'');
+  if(tel.indexOf('51') !== 0) tel = '51' + tel;
+
+  var conv = conversaciones[telefonoActual] || {};
+  var nombre = conv.nombre || 'este cliente';
+
+  if(estaSilenciado(telefonoActual)){
+    // ── REACTIVAR ──
+    try{
+      var k = claveSilenciado(telefonoActual);
+      await db.collection('bot_silenciado').doc(k).delete();
+      delete SILENCIADOS[k];
+      actualizarBotonSilencio();
+      mostrarAviso('🔊 Bot reactivado para ' + nombre);
+    }catch(e){
+      mostrarAviso('⚠️ Error: ' + e.message);
+    }
+  } else {
+    // ── SILENCIAR ──
+    try{
+      await db.collection('bot_silenciado').doc(tel).set({
+        celular: tel,
+        activo: true,
+        motivo: 'manual',
+        detalle: 'Silenciado por Rudy desde el panel',
+        silenciado_en: new Date().toISOString()
+      });
+      SILENCIADOS[tel] = { motivo: 'manual', activo: true };
+      actualizarBotonSilencio();
+      mostrarAviso('🔇 Bot silenciado para ' + nombre);
+    }catch(e){
+      mostrarAviso('⚠️ Error: ' + e.message);
+    }
+  }
+}
 
 function openChat(telefono) {
   telefonoActual = telefono;
@@ -588,6 +722,7 @@ function openChat(telefono) {
   
   renderMensajes(telefono);
   marcarLeido(telefono);
+  actualizarBotonSilencio();
   
   mainView.classList.add('hidden');
   chatView.classList.add('active');
@@ -661,6 +796,7 @@ function telVariants(tel){
 
 // ===== FIREBASE LISTENER =====
 function iniciarListener(){
+  iniciarListenerSilenciados();
   if(listenerIniciado) return;
   listenerIniciado = true;
   console.log('Iniciando listener...');
@@ -783,7 +919,8 @@ function renderLista(){
     html += '<div class="chat-checkbox ' + (isSelected ? 'checked' : '') + '"></div>';
     html += '<div class="avatar"><span style="font-weight:700;font-size:1.1rem;color:#fff;display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;' + colorAvatar(c.nombre || c.telefono) + '">' + inicial + '</span></div>';
     html += '<div class="chat-info">';
-    html += '<div class="chat-header-row"><span class="client-name">' + escapeHtml(c.nombre) + '</span><span class="chat-time">' + tiempo + '</span></div>';
+    var _mute = estaSilenciado(c.telefono) ? '<span title="Bot silenciado" style="margin-left:5px;font-size:0.8rem;">🔇</span>' : '';
+    html += '<div class="chat-header-row"><span class="client-name">' + escapeHtml(c.nombre) + _mute + '</span><span class="chat-time">' + tiempo + '</span></div>';
     html += '<div class="chat-message-row"><span class="last-msg">' + pref + escapeHtml(c.ultimoMensaje || '') + '</span></div>';
     html += '</div>';
     html += '<div class="chat-actions">';
