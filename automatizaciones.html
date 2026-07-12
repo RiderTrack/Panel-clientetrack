@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Automatizaciones · TrackVerse</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+  :root{
+    --bg:#F4F5FA; --card:#FFFFFF; --border:#E6E8F0;
+    --text:#12131A; --muted:#7A7D96;
+    --blue:#0052FF; --green:#16A34A; --red:#EF4444; --amber:#F59E0B; --purple:#8B5CF6;
+    --shadow:0 2px 12px rgba(18,19,26,0.05);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    padding:16px 14px 90px;
+  }
+  h1{font-size:1.35rem; margin:0 0 4px; display:flex; align-items:center; gap:9px;}
+  .sub{font-size:0.78rem; color:var(--muted); margin-bottom:18px;}
+
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:18px;
+    padding:16px; margin-bottom:14px; box-shadow:var(--shadow);
+  }
+  .card h2{
+    font-size:0.95rem; margin:0 0 4px; display:flex; align-items:center; gap:8px;
+  }
+  .card .desc{font-size:0.72rem; color:var(--muted); line-height:1.45; margin-bottom:12px;}
+
+  /* ── Interruptor maestro ── */
+  .master{
+    border:2px solid var(--border); border-radius:18px; padding:18px;
+    margin-bottom:14px; text-align:center; transition:all 0.25s;
+  }
+  .master.on{background:rgba(22,163,74,0.06); border-color:rgba(22,163,74,0.3);}
+  .master.off{background:rgba(239,68,68,0.07); border-color:var(--red);}
+  .master-state{font-size:1.5rem; font-weight:800; margin:8px 0 3px;}
+  .master.on .master-state{color:var(--green);}
+  .master.off .master-state{color:var(--red);}
+  .master-hint{font-size:0.72rem; color:var(--muted); line-height:1.45; margin-bottom:14px;}
+
+  .btn{
+    width:100%; padding:14px; border:none; border-radius:14px;
+    font-family:inherit; font-weight:800; font-size:0.9rem; cursor:pointer;
+  }
+  .btn-off{background:var(--red); color:#fff;}
+  .btn-on{background:var(--green); color:#fff;}
+
+  /* ── Switch ── */
+  .row{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:12px; padding:11px 0; border-bottom:1px solid var(--border);
+  }
+  .row:last-child{border-bottom:none;}
+  .row-txt{flex:1; min-width:0;}
+  .row-title{font-size:0.85rem; font-weight:600;}
+  .row-sub{font-size:0.68rem; color:var(--muted); margin-top:2px; line-height:1.35;}
+  .sw{
+    width:48px; height:28px; border-radius:20px; background:#D5D8E5;
+    position:relative; cursor:pointer; flex-shrink:0; transition:background 0.2s; border:none;
+  }
+  .sw.on{background:var(--green);}
+  .sw::after{
+    content:''; position:absolute; top:3px; left:3px;
+    width:22px; height:22px; border-radius:50%; background:#fff;
+    transition:transform 0.2s; box-shadow:0 1px 4px rgba(0,0,0,0.2);
+  }
+  .sw.on::after{transform:translateX(20px);}
+
+  input[type=number], input[type=text]{
+    background:var(--bg); border:1px solid var(--border); border-radius:10px;
+    padding:9px 11px; font-family:inherit; font-size:0.85rem; outline:none; color:var(--text);
+  }
+
+  /* ── Listas ── */
+  .item{
+    display:flex; align-items:center; gap:10px; padding:11px;
+    background:var(--bg); border-radius:12px; margin-bottom:7px;
+  }
+  .item-txt{flex:1; min-width:0;}
+  .item-t{font-size:0.85rem; font-weight:600;}
+  .item-s{font-size:0.68rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .btn-mini{
+    background:var(--green); color:#fff; border:none; border-radius:9px;
+    padding:7px 12px; font-size:0.72rem; font-weight:700; font-family:inherit;
+    cursor:pointer; flex-shrink:0;
+  }
+  .vacio{text-align:center; padding:22px 10px; color:var(--muted); font-size:0.8rem;}
+
+  .chip{
+    display:inline-flex; align-items:center; gap:5px;
+    background:rgba(239,68,68,0.08); color:#B91C1C;
+    border-radius:8px; padding:5px 9px; font-size:0.72rem; font-weight:600;
+    margin:0 5px 5px 0;
+  }
+  .chip i{cursor:pointer; opacity:0.6;}
+
+  .badge{
+    font-size:0.6rem; font-weight:800; padding:3px 7px; border-radius:6px;
+    text-transform:uppercase; letter-spacing:0.3px;
+  }
+  .b-ia{background:rgba(139,92,246,0.12); color:#7C3AED;}
+  .b-eta{background:rgba(0,82,255,0.1); color:var(--blue);}
+  .b-hand{background:rgba(239,68,68,0.1); color:#DC2626;}
+  .b-menu{background:rgba(122,125,150,0.12); color:var(--muted);}
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(100px);
+    background:#12131A; color:#fff; padding:12px 20px; border-radius:12px;
+    font-size:0.82rem; font-weight:600; z-index:999; transition:transform 0.28s;
+    max-width:90%; text-align:center;
+  }
+  .toast.show{transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<h1><i class="fa-solid fa-sliders" style="color:var(--purple);"></i> Automatizaciones</h1>
+<div class="sub">Control de lo que el bot hace <b>solo</b>, sin que tú mires.</div>
+
+<!-- ════ INTERRUPTOR MAESTRO ════ -->
+<div class="master on" id="master">
+  <div style="font-size:0.68rem; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:0.6px;">
+    Respuestas automáticas
+  </div>
+  <div class="master-state" id="masterState">🟢 ENCENDIDAS</div>
+  <div class="master-hint" id="masterHint">
+    El bot responde solo a los clientes.<br>
+    <b>Tus botones de RiderTrack siguen funcionando igual.</b>
+  </div>
+  <button class="btn btn-off" id="masterBtn" onclick="toggleMaestro()">
+    🔴 Apagar respuestas automáticas
+  </button>
+</div>
+
+<!-- ════ AJUSTES ════ -->
+<div class="card">
+  <h2><i class="fa-solid fa-gear" style="color:var(--muted);"></i> Ajustes</h2>
+
+  <div class="row">
+    <div class="row-txt">
+      <div class="row-title">🧠 Respuestas con IA</div>
+      <div class="row-sub">Si la apagas, el bot manda el menú en vez de improvisar. Más predecible.</div>
+    </div>
+    <button class="sw on" id="swIA" onclick="toggleIA()"></button>
+  </div>
+
+  <div class="row">
+    <div class="row-txt">
+      <div class="row-title">⏰ Solo en horario</div>
+      <div class="row-sub">Fuera de este horario el bot no responde nada automático.</div>
+    </div>
+    <button class="sw" id="swHorario" onclick="toggleHorario()"></button>
+  </div>
+
+  <div class="row" id="rowHoras" style="display:none;">
+    <div class="row-txt"><div class="row-title">Horario permitido</div></div>
+    <div style="display:flex; align-items:center; gap:6px;">
+      <input type="number" id="hIni" min="0" max="23" value="7" style="width:56px;" onchange="guardar()">
+      <span style="color:var(--muted); font-size:0.8rem;">a</span>
+      <input type="number" id="hFin" min="0" max="23" value="22" style="width:56px;" onchange="guardar()">
+      <span style="color:var(--muted); font-size:0.75rem;">hrs</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════ SILENCIADOS ════ -->
+<div class="card">
+  <h2><i class="fa-solid fa-volume-xmark" style="color:var(--red);"></i> Clientes silenciados <span id="cntSil" style="color:var(--muted); font-weight:400; font-size:0.78rem;"></span></h2>
+  <div class="desc">
+    El bot no les responde. Se silencian solos si detecta enojo, o los silencias tú desde el chat.
+  </div>
+  <div id="listaSil"><div class="vacio">Cargando...</div></div>
+</div>
+
+<!-- ════ PALABRAS DE ENOJO ════ -->
+<div class="card">
+  <h2><i class="fa-solid fa-face-angry" style="color:var(--amber);"></i> Palabras que callan al bot</h2>
+  <div class="desc">
+    Si el cliente escribe alguna, el bot <b>se calla</b> y te avisa.
+    Ya hay ~40 por defecto (estafa, reclamo, devuelvan...). Agrega las que se te escapen.
+  </div>
+  <div style="display:flex; gap:7px; margin-bottom:11px;">
+    <input type="text" id="nuevaPalabra" placeholder="Ej: no sirve" style="flex:1;" onkeypress="if(event.key==='Enter')agregarPalabra()">
+    <button onclick="agregarPalabra()" style="background:var(--amber); color:#fff; border:none; border-radius:10px; padding:0 15px; font-weight:700; font-family:inherit; font-size:0.8rem; cursor:pointer;">Agregar</button>
+  </div>
+  <div id="chipsPalabras"></div>
+</div>
+
+<!-- ════ REGISTRO ════ -->
+<div class="card">
+  <h2><i class="fa-solid fa-clock-rotate-left" style="color:var(--blue);"></i> Qué mandó el bot hoy</h2>
+  <div class="desc">Todo lo que el bot hizo <b>solo</b>, sin que tú lo dispararas.</div>
+  <div id="listaLog"><div class="vacio">Cargando...</div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script>
+// ⚠️ Proyecto ridertrack-93c8a (el MISMO del bot).
+// Lección del 11/07: campanas.html apuntaba a trackverse-92323 y nada llegaba.
+var firebaseConfig = {
+  apiKey: "AIzaSyAzDl7gaS40JoXt9OoCPzG9FyaVPz_O34I",
+  authDomain: "ridertrack-93c8a.firebaseapp.com",
+  projectId: "ridertrack-93c8a",
+  storageBucket: "ridertrack-93c8a.firebasestorage.app",
+  messagingSenderId: "851606828420",
+  appId: "1:851606828420:web:873a892a091394693e59d1",
+  measurementId: "G-WFYCZK7HKT"
+};
+firebase.initializeApp(firebaseConfig);
+var db = firebase.firestore();
+
+var CFG = {
+  bot_activo: true,
+  ia_activa: true,
+  horario_activo: false,
+  hora_inicio: 7,
+  hora_fin: 22,
+  palabras_enojo_extra: []
+};
+
+function toast(m){
+  var t = document.getElementById('toast');
+  t.textContent = m;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2600);
+}
+
+// ═══════════ CONFIG ═══════════
+function escucharConfig(){
+  db.collection('sistema').doc('control_bot').onSnapshot(function(doc){
+    if(doc.exists){
+      var d = doc.data() || {};
+      CFG.bot_activo      = d.bot_activo !== false;
+      CFG.ia_activa       = d.ia_activa !== false;
+      CFG.horario_activo  = d.horario_activo === true;
+      CFG.hora_inicio     = typeof d.hora_inicio === 'number' ? d.hora_inicio : 7;
+      CFG.hora_fin        = typeof d.hora_fin === 'number' ? d.hora_fin : 22;
+      CFG.palabras_enojo_extra = Array.isArray(d.palabras_enojo_extra) ? d.palabras_enojo_extra : [];
+    }
+    pintar();
+  }, function(e){ toast('⚠️ ' + e.message); });
+}
+
+function pintar(){
+  // Maestro
+  var m = document.getElementById('master');
+  var st = document.getElementById('masterState');
+  var hint = document.getElementById('masterHint');
+  var btn = document.getElementById('masterBtn');
+
+  if(CFG.bot_activo){
+    m.className = 'master on';
+    st.textContent = '🟢 ENCENDIDAS';
+    hint.innerHTML = 'El bot responde solo a los clientes.<br><b>Tus botones de RiderTrack siguen funcionando igual.</b>';
+    btn.className = 'btn btn-off';
+    btn.textContent = '🔴 Apagar respuestas automáticas';
+  } else {
+    m.className = 'master off';
+    st.textContent = '🔴 APAGADAS';
+    hint.innerHTML = 'El bot <b>no responde nada</b> a los clientes.<br><b>Tus botones de RiderTrack SIGUEN funcionando.</b>';
+    btn.className = 'btn btn-on';
+    btn.textContent = '🟢 Encender respuestas automáticas';
+  }
+
+  document.getElementById('swIA').className = 'sw' + (CFG.ia_activa ? ' on' : '');
+  document.getElementById('swHorario').className = 'sw' + (CFG.horario_activo ? ' on' : '');
+  document.getElementById('rowHoras').style.display = CFG.horario_activo ? 'flex' : 'none';
+  document.getElementById('hIni').value = CFG.hora_inicio;
+  document.getElementById('hFin').value = CFG.hora_fin;
+
+  // Palabras
+  var c = document.getElementById('chipsPalabras');
+  if(!CFG.palabras_enojo_extra.length){
+    c.innerHTML = '<div style="font-size:0.72rem;color:var(--muted);">Sin palabras extra. Las ~40 por defecto siguen activas.</div>';
+  } else {
+    c.innerHTML = CFG.palabras_enojo_extra.map(function(p){
+      return '<span class="chip">' + p + ' <i class="fa-solid fa-xmark" onclick="quitarPalabra(\'' + p.replace(/'/g,"\\'") + '\')"></i></span>';
+    }).join('');
+  }
+}
+
+function guardar(){
+  CFG.hora_inicio = parseInt(document.getElementById('hIni').value, 10) || 7;
+  CFG.hora_fin    = parseInt(document.getElementById('hFin').value, 10) || 22;
+  db.collection('sistema').doc('control_bot').set(CFG, {merge:true})
+    .then(function(){ toast('✓ Guardado'); })
+    .catch(function(e){ toast('⚠️ ' + e.message); });
+}
+
+function toggleMaestro(){
+  CFG.bot_activo = !CFG.bot_activo;
+  guardar();
+  toast(CFG.bot_activo ? '🟢 Bot encendido' : '🔴 Bot apagado — tus botones siguen OK');
+}
+function toggleIA(){ CFG.ia_activa = !CFG.ia_activa; guardar(); }
+function toggleHorario(){ CFG.horario_activo = !CFG.horario_activo; guardar(); }
+
+function agregarPalabra(){
+  var i = document.getElementById('nuevaPalabra');
+  var p = (i.value || '').trim().toLowerCase();
+  if(p.length < 3){ toast('⚠️ Muy corta (mín. 3 letras)'); return; }
+  if(CFG.palabras_enojo_extra.indexOf(p) !== -1){ toast('Ya está'); return; }
+  CFG.palabras_enojo_extra.push(p);
+  i.value = '';
+  guardar();
+}
+function quitarPalabra(p){
+  CFG.palabras_enojo_extra = CFG.palabras_enojo_extra.filter(function(x){ return x !== p; });
+  guardar();
+}
+
+// ═══════════ SILENCIADOS ═══════════
+function escucharSilenciados(){
+  db.collection('bot_silenciado').onSnapshot(function(snap){
+    var cont = document.getElementById('listaSil');
+    var n = 0, html = '';
+
+    snap.forEach(function(doc){
+      var d = doc.data() || {};
+      if(d.activo === false) return;
+      n++;
+      var motivo = d.motivo === 'enojo_detectado'
+        ? '😡 Enojo: ' + (d.detalle || '').slice(0, 40)
+        : '🔇 Silenciado por ti';
+      html += '<div class="item">' +
+        '<div class="item-txt">' +
+        '<div class="item-t">' + (d.celular || doc.id) + '</div>' +
+        '<div class="item-s">' + motivo + '</div>' +
+        '</div>' +
+        '<button class="btn-mini" onclick="reactivar(\'' + doc.id + '\')">▶️ Reactivar</button>' +
+        '</div>';
+    });
+
+    document.getElementById('cntSil').textContent = n ? '(' + n + ')' : '';
+    cont.innerHTML = n ? html : '<div class="vacio">✓ Ninguno silenciado</div>';
+  }, function(e){ console.warn(e); });
+}
+
+function reactivar(id){
+  db.collection('bot_silenciado').doc(id).delete()
+    .then(function(){ toast('🔊 Bot reactivado'); })
+    .catch(function(e){ toast('⚠️ ' + e.message); });
+}
+
+// ═══════════ REGISTRO ═══════════
+function cargarLog(){
+  var hoy = new Date().toISOString().slice(0,10);
+  db.collection('registro_bot')
+    .where('fecha', '==', hoy)
+    .limit(40)
+    .get()
+    .then(function(snap){
+      var cont = document.getElementById('listaLog');
+      if(snap.empty){
+        cont.innerHTML = '<div class="vacio">El bot no ha hecho nada solo hoy</div>';
+        return;
+      }
+      var docs = [];
+      snap.forEach(function(d){ docs.push(d.data()); });
+      docs.sort(function(a,b){ return (b.ts||'').localeCompare(a.ts||''); });
+
+      var etiq = {
+        respuesta_ia: ['IA', 'b-ia'],
+        eta_automatico: ['ETA', 'b-eta'],
+        handoff: ['HANDOFF', 'b-hand'],
+        menu_ia_off: ['MENÚ', 'b-menu']
+      };
+
+      cont.innerHTML = docs.map(function(d){
+        var e = etiq[d.tipo] || [d.tipo, 'b-menu'];
+        var h = '';
+        try{ h = new Date(d.ts).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}); }catch(x){}
+        return '<div class="item">' +
+          '<div class="item-txt">' +
+          '<div class="item-t">' + (d.nombre || 'Cliente') + ' <span class="badge ' + e[1] + '">' + e[0] + '</span></div>' +
+          '<div class="item-s">' + h + ' · ' + (d.detalle || '').slice(0,50) + '</div>' +
+          '</div></div>';
+      }).join('');
+    })
+    .catch(function(e){
+      document.getElementById('listaLog').innerHTML =
+        '<div class="vacio">⚠️ ' + e.message + '</div>';
+    });
+}
+
+// ═══════════ INIT ═══════════
+escucharConfig();
+escucharSilenciados();
+cargarLog();
+</script>
+</body>
+</html>
