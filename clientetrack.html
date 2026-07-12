@@ -582,6 +582,60 @@ const UID_BOT = 'K8wx9X5GGOfindI1RGtIIQN3UGr1';
 // ═══════════════════════════════════════════════════════════════
 var SILENCIADOS = {};   // { '51999888777': {motivo, detalle, silenciado_en} }
 
+// ═══════════════════════════════════════════════════════════════
+// FOTOS DE PERFIL — las guarda el bot en clientes_registrados.foto_perfil
+// (ya subidas a Firebase Storage, o sea NO expiran).
+// Si no hay foto, se muestra el círculo con la inicial de siempre.
+// ═══════════════════════════════════════════════════════════════
+var FOTOS = {};   // { '51999888777': 'https://storage.googleapis.com/...' }
+
+function keyFoto(tel){
+  var t = String(tel || '').replace(/\D/g,'');
+  if(!t) return null;
+  var sin51 = t.replace(/^51/, '');
+  var v = [t, sin51, '51' + sin51];
+  for(var i=0;i<v.length;i++){ if(FOTOS[v[i]]) return v[i]; }
+  return null;
+}
+function getFoto(tel){
+  var k = keyFoto(tel);
+  return k ? FOTOS[k] : null;
+}
+
+// Devuelve el HTML del avatar: foto si hay, círculo con inicial si no.
+function htmlAvatar(nombre, telefono, tam){
+  var url = getFoto(telefono);
+  var ini = (nombre || '?').charAt(0).toUpperCase();
+  var fs  = tam === 'small' ? '0.9rem' : '1.1rem';
+  if(url){
+    return '<img src="' + url + '" alt="" ' +
+           'onerror="this.parentNode.innerHTML=\'<span style=&quot;font-weight:700;font-size:' + fs + ';color:#fff;display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;' + colorAvatar(nombre || telefono).replace(/"/g,'&quot;') + '&quot;>' + ini + '</span>\'" ' +
+           'style="width:100%;height:100%;border-radius:50%;object-fit:cover;">';
+  }
+  return '<span style="font-weight:700;font-size:' + fs + ';color:#fff;display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;' + colorAvatar(nombre || telefono) + '">' + ini + '</span>';
+}
+
+function iniciarListenerFotos(){
+  try{
+    db.collection('clientes_registrados').onSnapshot(function(snap){
+      var n = 0;
+      snap.forEach(function(doc){
+        var d = doc.data() || {};
+        if(d.foto_perfil){ FOTOS[doc.id] = d.foto_perfil; n++; }
+      });
+      if(n > 0) renderLista();
+      if(telefonoActual) pintarAvatarChat();
+    }, function(e){ console.warn('listener fotos:', e.message); });
+  }catch(e){ console.warn('iniciarListenerFotos:', e.message); }
+}
+
+function pintarAvatarChat(){
+  var el = document.querySelector('#chatView .avatar');
+  if(!el || !telefonoActual) return;
+  var conv = conversaciones[telefonoActual] || {};
+  el.innerHTML = htmlAvatar(conv.nombre, telefonoActual, 'small');
+}
+
 // ===== ESTADO =====
 var conversaciones = {};
 var telefonoActual = null;
@@ -717,7 +771,7 @@ function openChat(telefono) {
   
   var avatarEl = document.querySelector('#chatView .avatar');
   if(avatarEl){
-    avatarEl.innerHTML = '<span style="font-weight:700;font-size:0.9rem;color:#fff;display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;' + colorAvatar(conv.nombre || telefono) + '">' + (conv.nombre||'?').charAt(0).toUpperCase() + '</span>';
+    avatarEl.innerHTML = htmlAvatar(conv.nombre, telefono, 'small');
   }
   
   renderMensajes(telefono);
@@ -797,6 +851,7 @@ function telVariants(tel){
 // ===== FIREBASE LISTENER =====
 function iniciarListener(){
   iniciarListenerSilenciados();
+  iniciarListenerFotos();
   if(listenerIniciado) return;
   listenerIniciado = true;
   console.log('Iniciando listener...');
@@ -917,7 +972,7 @@ function renderLista(){
     
     html += '<div class="glass-panel chat-item ripple-target" onclick="' + (selectMode ? 'toggleSelect(\''+c.telefono+'\')' : 'openChat(\''+c.telefono+'\')') + '" style="' + (isSelected ? 'border-color:var(--primary);background:var(--primary-light);' : '') + '">';
     html += '<div class="chat-checkbox ' + (isSelected ? 'checked' : '') + '"></div>';
-    html += '<div class="avatar"><span style="font-weight:700;font-size:1.1rem;color:#fff;display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;' + colorAvatar(c.nombre || c.telefono) + '">' + inicial + '</span></div>';
+    html += '<div class="avatar">' + htmlAvatar(c.nombre, c.telefono, 'big') + '</div>';
     html += '<div class="chat-info">';
     var _mute = estaSilenciado(c.telefono) ? '<span title="Bot silenciado" style="margin-left:5px;font-size:0.8rem;">🔇</span>' : '';
     html += '<div class="chat-header-row"><span class="client-name">' + escapeHtml(c.nombre) + _mute + '</span><span class="chat-time">' + tiempo + '</span></div>';
