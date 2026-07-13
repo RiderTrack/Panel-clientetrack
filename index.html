@@ -152,23 +152,26 @@
         }
 
         /* ═══ WHITE-LABEL: tarjeta de la empresa del cliente ═══ */
+        /* ⚠️ NADA de colores hardcodeados aquí.
+           Se usan las variables del panel (--text-main, --text-muted),
+           que YA cambian solas con el tema. Poner #fff fijo hace que el
+           texto desaparezca en tema claro (blanco sobre blanco). */
         .empresa-card {
             display:flex; align-items:center; gap:11px;
             margin:0 14px 18px; padding:11px 12px;
-            background:rgba(255,255,255,0.05);
-            border:1px solid rgba(255,255,255,0.1);
+            background:var(--surface);
+            border:1px solid var(--border-light);
             border-radius:14px; cursor:pointer;
             transition:all 0.2s; position:relative;
+            box-shadow:var(--shadow-sm);
         }
-        .empresa-card:hover {
-            background:rgba(255,255,255,0.09);
-            border-color:rgba(255,255,255,0.2);
-        }
+        .empresa-card:active { transform:scale(0.98); }
         .empresa-logo {
             width:38px; height:38px; border-radius:10px;
             background:#fff; flex-shrink:0;
             display:flex; align-items:center; justify-content:center;
-            overflow:hidden; color:#5B21B6; font-size:0.95rem;
+            overflow:hidden; color:var(--purple-alpha); font-size:0.95rem;
+            border:1px solid var(--border-light);
         }
         .empresa-logo img {
             width:100%; height:100%; object-fit:contain; padding:3px;
@@ -176,15 +179,16 @@
         .empresa-info { flex:1; min-width:0; }
         .empresa-info h5 {
             margin:0; font-size:0.85rem; font-weight:700;
-            color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+            color:var(--text-main);
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
         }
         .empresa-info p {
             margin:1px 0 0; font-size:0.66rem;
-            color:rgba(255,255,255,0.55);
+            color:var(--text-muted);
             white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
         }
         .empresa-edit {
-            font-size:0.62rem; color:rgba(255,255,255,0.35); flex-shrink:0;
+            font-size:0.62rem; color:var(--text-muted); opacity:0.6; flex-shrink:0;
         }
 
         /* ═══ Modal de configuración de empresa ═══ */
@@ -195,32 +199,32 @@
         }
         .emp-modal.show { display:flex; }
         .emp-box {
-            background:#fff; border-radius:22px; padding:24px;
+            background:var(--bg-color); border-radius:22px; padding:24px;
             width:100%; max-width:420px; max-height:88vh; overflow-y:auto;
         }
-        .emp-box h3 { margin:0 0 4px; font-size:1.15rem; }
-        .emp-box .emp-sub { font-size:0.76rem; color:#7A7D96; margin-bottom:20px; line-height:1.45; }
+        .emp-box h3 { margin:0 0 4px; font-size:1.15rem; color:var(--text-main); }
+        .emp-box .emp-sub { font-size:0.76rem; color:var(--text-muted); margin-bottom:20px; line-height:1.45; }
         .emp-field { margin-bottom:14px; }
         .emp-field label {
-            display:block; font-size:0.7rem; font-weight:700; color:#7A7D96;
+            display:block; font-size:0.7rem; font-weight:700; color:var(--text-muted);
             text-transform:uppercase; letter-spacing:0.4px; margin-bottom:6px;
         }
         .emp-field input, .emp-field textarea {
-            width:100%; padding:11px 13px; border:1px solid #E6E8F0;
+            width:100%; padding:11px 13px; border:1px solid var(--border-light);
             border-radius:11px; font-family:inherit; font-size:0.88rem;
-            outline:none; background:#F8F9FC; color:#12131A;
+            outline:none; background:var(--surface); color:var(--text-main);
         }
         .emp-field input:focus, .emp-field textarea:focus { border-color:#5B21B6; background:#fff; }
         .emp-logo-drop {
-            border:2px dashed #E6E8F0; border-radius:14px; padding:18px;
+            border:2px dashed var(--border-light); border-radius:14px; padding:18px;
             text-align:center; cursor:pointer; transition:all 0.2s;
         }
-        .emp-logo-drop:hover { border-color:#5B21B6; background:#FAF8FF; }
+        .emp-logo-drop:hover { border-color:var(--purple-alpha); }
         .emp-logo-prev {
             width:64px; height:64px; margin:0 auto 8px;
-            border-radius:12px; background:#F1F3F9;
+            border-radius:12px; background:var(--surface); border:1px solid var(--border-light);
             display:flex; align-items:center; justify-content:center;
-            overflow:hidden; color:#B4BAC9; font-size:1.4rem;
+            overflow:hidden; color:var(--text-muted); font-size:1.4rem;
         }
         .emp-logo-prev img { width:100%; height:100%; object-fit:contain; padding:4px; }
         .emp-btns { display:flex; gap:9px; margin-top:20px; }
@@ -228,7 +232,7 @@
             flex:1; padding:13px; border:none; border-radius:13px;
             font-family:inherit; font-weight:700; font-size:0.88rem; cursor:pointer;
         }
-        .emp-cancel { background:#F1F3F9; color:#7A7D96; }
+        .emp-cancel { background:var(--surface); color:var(--text-muted); border:1px solid var(--border-light); }
         .emp-save { background:linear-gradient(135deg,#5B21B6,#7C3AED); color:#fff; }
 
         .user-profile {
